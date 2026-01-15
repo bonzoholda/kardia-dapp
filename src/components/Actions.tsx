@@ -67,27 +67,57 @@ export function Actions() {
     }
   }, [puWait.isSuccess, stakeWait.isSuccess, claimWait.isSuccess]);
 
-  // Logic: Approve + Acquire Power Units
+  // Logic: Smart Approve + Acquire Power Units with Gas Buffer
   const handleAcquirePU = async () => {
     if (!ethersSigner || !puAmount) return;
     setIsBroadcasting(true);
-    setStatusMsg("Step 1/2: Approving...");
+    setStatusMsg("Initializing...");
+    
     try {
       const signer = await ethersSigner;
+      const userAddress = await signer.getAddress();
       const amount = parseUnits(puAmount, 18);
       
       const usdt = new Contract(USDT_ADDRESS, ERC20_ABI, signer);
-      const txApprove = await usdt.approve(controller, amount);
-      await txApprove.wait();
-
-      setStatusMsg("Step 2/2: Depositing...");
       const kardia = new Contract(controller, SPHYGMOS_CONTROLLER_ABI, signer);
-      const txDeposit = await kardia.depositPush(amount); // Using your ABI function name
+
+      // 1. SMART ALLOWANCE CHECK
+      setStatusMsg("Checking Permissions...");
+      const currentAllowance = await usdt.allowance(userAddress, controller);
+      
+      if (BigInt(currentAllowance) < BigInt(amount)) {
+        setStatusMsg("Step 1/2: Approving...");
+        const txApprove = await usdt.approve(controller, amount);
+        await txApprove.wait();
+      }
+
+      // 2. DEPOSIT WITH GAS BUFFER
+      setStatusMsg("Step 2/2: Depositing...");
+      
+      // Estimate gas and add a 20% buffer to prevent reverts during swaps
+      const estimatedGas = await kardia.depositPush.estimateGas(amount);
+      const gasLimit = (estimatedGas * 120n) / 100n;
+
+      const txDeposit = await kardia.depositPush(amount, {
+        gasLimit: gasLimit
+      });
+
       setPuTx(txDeposit.hash as `0x${string}`);
-    } catch (e) {
+      setStatusMsg("Processing...");
+    } catch (e: any) {
       console.error(e);
       setIsBroadcasting(false);
-      setStatusMsg("Failed");
+      
+      // User-friendly error message
+      const msg = e.reason || e.message || "";
+      if (msg.includes("user rejected")) {
+        setStatusMsg("Cancelled");
+      } else {
+        setStatusMsg("Failed");
+      }
+      
+      // Reset button after error
+      setTimeout(() => setStatusMsg(""), 3000);
     }
   };
 
@@ -96,13 +126,14 @@ export function Actions() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
-      {/* 1. ACQUIRE POWER UNITS (WITH APPROVE LOGIC) */}
+      {/* 1. ACQUIRE POWER UNITS (WITH SMART LOGIC) */}
       <div className="space-y-3 p-6 bg-slate-900/50 rounded-[2.5rem] border border-slate-800">
         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Acquire Power</h4>
         <div className="relative">
           <input 
             className="input w-full h-14 bg-black border-slate-700 rounded-2xl text-white font-bold" 
             placeholder="USDT Amount" 
+            type="number"
             value={puAmount} 
             onChange={(e) => setPuAmount(e.target.value)} 
           />
@@ -111,7 +142,7 @@ export function Actions() {
           </div>
         </div>
         <button
-          className="btn h-14 w-full bg-[#eab308] hover:bg-[#ca8a04] text-black border-none rounded-2xl font-black text-sm uppercase transition-all"
+          className="btn h-14 w-full bg-[#eab308] hover:bg-[#ca8a04] text-black border-none rounded-2xl font-black text-sm uppercase transition-all disabled:opacity-50"
           disabled={!puAmount || isBroadcasting}
           onClick={handleAcquirePU}
         >
@@ -127,6 +158,7 @@ export function Actions() {
           <input 
             className="input w-full h-14 bg-black border-slate-700 rounded-2xl text-white font-bold" 
             placeholder="KDIA Amount" 
+            type="number"
             value={stakeAmount} 
             onChange={(e) => setStakeAmount(e.target.value)} 
           />
