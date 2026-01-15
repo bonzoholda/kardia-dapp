@@ -1,4 +1,4 @@
-export const PANCAKE_ROUTER_ADDRESS = "0x9Ac64Cc6e4415144C455bd8E4837fea55603e5c3"; // BSC Testnet Router
+export const PANCAKE_ROUTER_ADDRESS = "0xD99D1c33F9fC3444f8101754aBC46c52416550D1"; // BSC Testnet Router
 
 export const PANCAKE_ROUTER_ABI = [
   {
