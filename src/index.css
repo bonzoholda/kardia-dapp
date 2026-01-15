@@ -3,15 +3,16 @@
 @tailwind utilities;
 
 /* ===============================
-   GLOBAL THEME
+   GLOBAL THEME (KARDIA RED)
 ================================ */
 
 body {
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: #000;
-  color: #e5e7eb; /* slate-200 */
+  background-color: #050505; /* Deeper black for higher contrast */
+  color: #f3f4f6; /* gray-100 */
   -webkit-font-smoothing: antialiased;
+  background-image: radial-gradient(circle at center, #0a0000 0%, #000000 100%);
 }
 
 /* Hide Web3Modal button ONLY inside Telegram mobile */
@@ -23,62 +24,63 @@ w3m-button {
   display: none !important;
 }
 
-
 /* ===============================
-   BUTTONS
+   BUTTONS (NEON RED)
 ================================ */
 
 .btn {
-  @apply w-full py-3 rounded-xl font-semibold transition-all duration-200;
-  background: linear-gradient(180deg, #0a0a0a, #000);
-  color: #facc15; /* yellow-400 */
-  border: 1px solid rgba(250, 204, 21, 0.4);
+  @apply w-full py-3 rounded-xl font-bold transition-all duration-300 uppercase tracking-wider;
+  background: linear-gradient(180deg, #1a0505, #000);
+  color: #ef4444; /* red-500 */
+  border: 1px solid rgba(239, 68, 68, 0.4);
   box-shadow:
-    0 0 12px rgba(250, 204, 21, 0.15),
-    inset 0 0 8px rgba(250, 204, 21, 0.08);
+    0 0 15px rgba(239, 68, 68, 0.15),
+    inset 0 0 10px rgba(239, 68, 68, 0.05);
 }
 
 .btn:hover {
   box-shadow:
-    0 0 18px rgba(250, 204, 21, 0.35),
-    inset 0 0 12px rgba(250, 204, 21, 0.15);
-  transform: translateY(-1px);
+    0 0 25px rgba(239, 68, 68, 0.4),
+    inset 0 0 15px rgba(239, 68, 68, 0.2);
+  transform: translateY(-2px);
+  border-color: #ef4444;
 }
 
 .btn:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
 .btn-outline {
   background: transparent;
-  color: #facc15;
-  border: 1px solid rgba(250, 204, 21, 0.6);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.6);
 }
 
 button:disabled {
-  opacity: 0.45;
+  opacity: 0.3;
   cursor: not-allowed;
   box-shadow: none;
+  filter: grayscale(1);
 }
 
 /* ===============================
-   INPUTS
+   INPUTS (DARK GLASS)
 ================================ */
 
 .input {
-  @apply w-full rounded-xl px-4 py-3 outline-none transition;
-  background: rgba(10, 10, 10, 0.85);
-  color: #f9fafb;
-  border: 1px solid rgba(250, 204, 21, 0.25);
+  @apply w-full rounded-xl px-4 py-3 outline-none transition-all duration-300;
+  background: rgba(15, 5, 5, 0.9);
+  color: #ffffff;
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .input::placeholder {
-  color: rgba(250, 204, 21, 0.35);
+  color: rgba(239, 68, 68, 0.4);
 }
 
 .input:focus {
-  border-color: #facc15;
-  box-shadow: 0 0 14px rgba(250, 204, 21, 0.35);
+  border-color: #ef4444;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
 }
 
 /* ===============================
@@ -88,32 +90,32 @@ button:disabled {
 .card {
   background: linear-gradient(
     180deg,
-    rgba(15, 15, 15, 0.9),
-    rgba(5, 5, 5, 0.9)
+    rgba(20, 5, 5, 0.95),
+    rgba(5, 0, 0, 0.98)
   );
-  border: 1px solid rgba(250, 204, 21, 0.25);
-  border-radius: 1rem;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 1.25rem;
   box-shadow:
-    0 0 24px rgba(250, 204, 21, 0.12),
-    inset 0 0 12px rgba(250, 204, 21, 0.06);
+    0 0 30px rgba(0, 0, 0, 0.6),
+    inset 0 0 15px rgba(239, 68, 68, 0.05);
 }
 
 /* ===============================
-   NEON PULSE GLOW (LOGO / HIGHLIGHTS)
+   NEON PULSE GLOW (THE HEARTBEAT)
 ================================ */
 
 @keyframes glowPulse {
   0% {
     transform: scale(1);
-    opacity: 0.35;
+    opacity: 0.3;
   }
   50% {
-    transform: scale(1.12);
-    opacity: 0.65;
+    transform: scale(1.15);
+    opacity: 0.55;
   }
   100% {
     transform: scale(1);
-    opacity: 0.35;
+    opacity: 0.3;
   }
 }
 
@@ -124,80 +126,78 @@ button:disabled {
 .pulse-glow::before {
   content: "";
   position: absolute;
-  inset: -16px;
+  inset: -20px;
   border-radius: 9999px;
   background: radial-gradient(
     circle,
-    rgba(250, 204, 21, 0.7) 0%,
-    rgba(250, 204, 21, 0.25) 35%,
-    transparent 70%
+    rgba(239, 68, 68, 0.6) 0%,
+    rgba(239, 68, 68, 0.2) 40%,
+    transparent 75%
   );
-  filter: blur(14px);
-  animation: glowPulse 3s ease-in-out infinite;
+  filter: blur(18px);
+  animation: glowPulse 2.5s ease-in-out infinite; /* Slightly faster pulse for Kardia */
   z-index: 0;
 }
 
 /* ===============================
-   TEXT GLOW (HEADERS / KEY STATS)
+   TEXT GLOW (KARDIA RED)
 ================================ */
 
 .text-neon {
-  color: #facc15;
+  color: #ef4444;
   text-shadow:
-    0 0 8px rgba(250, 204, 21, 0.6),
-    0 0 18px rgba(250, 204, 21, 0.35);
+    0 0 10px rgba(239, 68, 68, 0.7),
+    0 0 25px rgba(239, 68, 68, 0.4);
 }
 
 /* ===============================
-   SUBTLE GRID BACKGROUND (OPTIONAL)
+   SUBTLE GRID BACKGROUND (RED)
 ================================ */
 
 .bg-grid {
   background-image:
-    linear-gradient(rgba(250, 204, 21, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(250, 204, 21, 0.04) 1px, transparent 1px);
-  background-size: 40px 40px;
+    linear-gradient(rgba(239, 68, 68, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(239, 68, 68, 0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
 }
 
 /* ───── Themed Containers ───── */
 .panel {
-  @apply rounded-xl bg-black/70 border border-yellow-400/20 p-4;
+  @apply rounded-xl bg-black/80 border border-red-500/20 p-4 transition-all hover:border-red-500/40;
 }
 
 .panel-title {
-  @apply text-xs uppercase tracking-wide text-yellow-400/70;
+  @apply text-xs uppercase tracking-[0.2em] text-red-500/60 font-bold;
 }
 
 .panel-value {
-  @apply mt-1 text-lg font-semibold text-neon;
+  @apply mt-1 text-xl font-bold text-neon;
 }
 
 /* Wallet Button Override */
 .wallet-btn {
-  @apply bg-black border border-yellow-400 text-yellow-400
-         hover:bg-yellow-400 hover:text-black
-         transition;
+  @apply bg-transparent border border-red-500 text-red-500 font-bold
+         hover:bg-red-500 hover:text-white hover:shadow-[0_0_15px_rgba(239,68,68,0.5)]
+         transition-all duration-300;
 }
 
 /* ============================================================
-   GLASS CARD (FUTURISTIC)
+   GLASS CARD (FUTURISTIC KARDIA)
 ============================================================ */
 
 .glass-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.06); /* lighter than bg */
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border-radius: 1rem;
-
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 2, 2, 0.4); /* Darker, blood-tinted glass */
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-radius: 1.5rem;
+  border: 1px solid rgba(239, 68, 68, 0.15);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.03),
-    0 12px 30px rgba(0, 0, 0, 0.55),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    0 20px 50px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 1px rgba(239, 68, 68, 0.05);
 }
 
-/* Soft neon edge glow */
+/* Red neon edge glow */
 .glass-card::after {
   content: "";
   position: absolute;
@@ -205,9 +205,7 @@ button:disabled {
   border-radius: inherit;
   pointer-events: none;
   box-shadow:
-    0 0 18px rgba(250, 204, 21, 0.12),
-    0 0 40px rgba(250, 204, 21, 0.05);
-  opacity: 0.8;
+    0 0 20px rgba(239, 68, 68, 0.15),
+    0 0 50px rgba(239, 68, 68, 0.05);
+  opacity: 0.9;
 }
-
-   
