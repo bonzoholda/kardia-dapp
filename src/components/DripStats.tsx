@@ -26,11 +26,11 @@ export default function DripStats() {
 
   return (
     <div className="grid p-4 space-y-3">
-      <h3 className="panel-title">💧 SMOS Drip Emission</h3>
+      <h3 className="panel-title">💧 KDIA Drip Emission</h3>
 
       <div className="grid grid-cols-1 gap-4">
         <StatCard
-          label="Drip / Day (SMOS)"
+          label="Drip / Day (KDIA)"
           value={
             dripPerDay > 0n
               ? fmt(dripPerDay, 18, 4)
