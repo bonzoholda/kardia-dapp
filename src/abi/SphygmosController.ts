@@ -1,5 +1,5 @@
 export const SPHYGMOS_CONTROLLER_ABI = [
-  	{
+	{
 		"inputs": [
 			{
 				"internalType": "address",
@@ -8,12 +8,22 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 			},
 			{
 				"internalType": "address",
-				"name": "_smos",
+				"name": "_wbtc",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_kdia",
 				"type": "address"
 			},
 			{
 				"internalType": "address",
 				"name": "_router",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_v1Controller",
 				"type": "address"
 			}
 		],
@@ -65,6 +75,19 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 		"anonymous": false,
 		"inputs": [
 			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "amountV1",
+				"type": "uint256"
+			}
+		],
+		"name": "HeartbeatPushed",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
 				"indexed": true,
 				"internalType": "address",
 				"name": "previousOwner",
@@ -107,7 +130,7 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 	},
 	{
 		"inputs": [],
-		"name": "ACTIVE_MINT_SMOS",
+		"name": "ACTIVE_MINT_KDIA",
 		"outputs": [
 			{
 				"internalType": "uint256",
@@ -126,6 +149,19 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 				"internalType": "uint256",
 				"name": "",
 				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "KDIA",
+		"outputs": [
+			{
+				"internalType": "contract IKDIA",
+				"name": "",
+				"type": "address"
 			}
 		],
 		"stateMutability": "view",
@@ -172,10 +208,10 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 	},
 	{
 		"inputs": [],
-		"name": "SMOS",
+		"name": "SPHYGMOS_V1_CONTROLLER",
 		"outputs": [
 			{
-				"internalType": "contract ISMOS",
+				"internalType": "address",
 				"name": "",
 				"type": "address"
 			}
@@ -185,7 +221,7 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 	},
 	{
 		"inputs": [],
-		"name": "TRIGGER_BOUNTY_SMOS",
+		"name": "TRIGGER_BOUNTY_KDIA",
 		"outputs": [
 			{
 				"internalType": "uint256",
@@ -224,6 +260,19 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 	},
 	{
 		"inputs": [],
+		"name": "WBTC",
+		"outputs": [
+			{
+				"internalType": "contract IWBTC",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
 		"name": "accRewardPerPU",
 		"outputs": [
 			{
@@ -233,13 +282,6 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 			}
 		],
 		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "claimMinerRewards",
-		"outputs": [],
-		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -374,7 +416,7 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 	},
 	{
 		"inputs": [],
-		"name": "setSMOSRewardPoolAddress",
+		"name": "setKDIARewardPoolAddress",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -400,7 +442,7 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 				"type": "address"
 			}
 		],
-		"name": "stakedSMOS",
+		"name": "stakedKDIA",
 		"outputs": [
 			{
 				"internalType": "uint256",
@@ -409,6 +451,13 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 			}
 		],
 		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "syncTax",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -426,7 +475,7 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 	},
 	{
 		"inputs": [],
-		"name": "totalStakedSMOS",
+		"name": "totalStakedKDIA",
 		"outputs": [
 			{
 				"internalType": "uint256",
@@ -490,7 +539,7 @@ export const SPHYGMOS_CONTROLLER_ABI = [
 				"type": "uint256"
 			}
 		],
-		"name": "unstakeSMOS",
+		"name": "unstakeKDIA",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
