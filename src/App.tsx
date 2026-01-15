@@ -18,7 +18,8 @@ import { SwapTrading } from "./components/SwapTrading";
  */
 const CONTROLLER_ADDRESS = import.meta.env.VITE_CONTROLLER_ADDRESS as `0x${string}` | undefined;
 const MOCK_USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}` | undefined;
-const SMOS_ADDRESS = import.meta.env.VITE_SMOS_ADDRESS as `0x${string}` | undefined;
+const KDIA_ADDRESS = import.meta.env.VITE_KDIA_ADDRESS as `0x${string}` | undefined;
+const WBTC_ADDRESS = import.meta.env.VITE_WBTC_ADDRESS as `0x${string}` | undefined;
 
 export default function App() {
   const { minersPool, rewardPool, totalPU } = useController();
@@ -107,7 +108,7 @@ export default function App() {
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            TRADE SMOS
+            TRADE KDIA
           </button>
         </div>
 
@@ -142,7 +143,7 @@ export default function App() {
                 amountRequired="0.1" 
               >
                 <TokenApprovalGuard
-                  tokenAddress={SMOS_ADDRESS}
+                  tokenAddress={KDIA_ADDRESS}
                   spenderAddress={CONTROLLER_ADDRESS}
                   amountRequired="0.1"
                 >
