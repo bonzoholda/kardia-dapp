@@ -41,7 +41,7 @@ export default function Stats() {
   const { data, refetch } = useReadContracts({
     contracts: [
       { address: CONTROLLER_ADDRESS, abi: SPHYGMOS_CONTROLLER_ABI, functionName: "userPU", args: [safeAddress] },
-      { address: CONTROLLER_ADDRESS, abi: SPHYGMOS_CONTROLLER_ABI, functionName: "stakedSMOS", args: [safeAddress] },
+      { address: CONTROLLER_ADDRESS, abi: SPHYGMOS_CONTROLLER_ABI, functionName: "stakedKDIA", args: [safeAddress] },
       { address: CONTROLLER_ADDRESS, abi: SPHYGMOS_CONTROLLER_ABI, functionName: "unlockTime", args: [safeAddress] },
       { address: CONTROLLER_ADDRESS, abi: SPHYGMOS_CONTROLLER_ABI, functionName: "accRewardPerPU" },
       { address: CONTROLLER_ADDRESS, abi: SPHYGMOS_CONTROLLER_ABI, functionName: "rewardDebt", args: [safeAddress] },
@@ -122,7 +122,7 @@ export default function Stats() {
         <p className="panel-title text-green-400">Claimable Rewards</p>
         <div className="flex items-baseline gap-2">
           <p className="panel-value text-white">{fmt(((uPU ?? 0n) * (gAcc ?? 0n) / BigInt(1e18)) - (uDebt ?? 0n),18,8)}</p>
-          <span className="text-[10px] text-green-500/60 font-mono">SMOS</span>
+          <span className="text-[10px] text-green-500/60 font-mono">KDIA</span>
         </div>
       </div>
 
