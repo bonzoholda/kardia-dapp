@@ -12,7 +12,7 @@ import { TxStatus } from "./TxStatus";
 
 const ROUTER_ADDRESS = import.meta.env.VITE_ROUTER_ADDRESS as `0x${string}` | undefined;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}` | undefined;
-const SMOS_ADDRESS = import.meta.env.VITE_SMOS_ADDRESS as `0x${string}` | undefined;
+const KDIA_ADDRESS = import.meta.env.VITE_KDIA_ADDRESS as `0x${string}` | undefined;
 
 const ROUTER_ABI = [
   {
@@ -46,13 +46,13 @@ export function SwapTrading() {
   const [amountIn, setAmountIn] = useState("");
   const [txHash, setTxHash] = useState<`0x${string}`>();
 
-  const tokenIn = isBuy ? USDT_ADDRESS : SMOS_ADDRESS;
-  const tokenOut = isBuy ? SMOS_ADDRESS : USDT_ADDRESS;
+  const tokenIn = isBuy ? USDT_ADDRESS : KDIA_ADDRESS;
+  const tokenOut = isBuy ? KDIA_ADDRESS : USDT_ADDRESS;
 
   /* ───────── Wallet Balances ───────── */
   // Extracted refetch functions
   const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
-  const { data: smosData, refetch: refetchSmos } = useBalance({ address, token: SMOS_ADDRESS });
+  const { data: smosData, refetch: refetchSmos } = useBalance({ address, token: KDIA_ADDRESS });
 
   /* ───────── Price & Quote ───────── */
   // Extracted refetch functions for contract reads
@@ -60,7 +60,7 @@ export function SwapTrading() {
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: [parseUnits("1", 18), [SMOS_ADDRESS, USDT_ADDRESS]],
+    args: [parseUnits("1", 18), [KDIA_ADDRESS, USDT_ADDRESS]],
   });
 
   const { data: quoteData, refetch: refetchQuote } = useReadContract({
@@ -70,7 +70,7 @@ export function SwapTrading() {
     args: amountIn && Number(amountIn) > 0 ? [parseUnits(amountIn, 18), [tokenIn, tokenOut]] : undefined,
   });
 
-  const smosPriceUSDT = priceData ? Number(formatUnits(priceData[1], 18)).toFixed(4) : "0.00";
+  const kdiaPriceUSDT = priceData ? Number(formatUnits(priceData[1], 18)).toFixed(4) : "0.00";
   const estimatedOut = quoteData ? Number(formatUnits(quoteData[1], 18)).toFixed(4) : "0.0000";
 
   /* ───────── Swap Execution ───────── */
@@ -114,7 +114,7 @@ export function SwapTrading() {
         <div>
           <p className="panel-title">Trading Hub</p>
           <p className="text-xs font-mono text-yellow-400 mt-1">
-            Price: 1 SMOS = {smosPriceUSDT} USDT
+            Price: 1 KDIA = {kdiaPriceUSDT} USDT
           </p>
         </div>
 
@@ -131,7 +131,7 @@ export function SwapTrading() {
 
       <div className="grid grid-cols-2 gap-2">
         <BalanceChip label="USDT" val={usdtData?.formatted} />
-        <BalanceChip label="SMOS" val={smosData?.formatted} neon />
+        <BalanceChip label="KDIA" val={smosData?.formatted} neon />
       </div>
 
       <div className="space-y-3">
@@ -144,7 +144,7 @@ export function SwapTrading() {
             className="w-full bg-transparent text-2xl font-black outline-none text-white"
           />
           <p className="text-[10px] text-slate-500 uppercase mt-1 font-bold">
-            {isBuy ? "Pay USDT" : "Pay SMOS"}
+            {isBuy ? "Pay USDT" : "Pay KDIA"}
           </p>
         </div>
 
@@ -166,7 +166,7 @@ export function SwapTrading() {
           disabled={!amountIn || estimatedOut === "0.0000" || isPending || isConfirming}
           className="btn btn-outline w-full"
         >
-          {isPending || isConfirming ? "Processing..." : isBuy ? "Buy SMOS" : "Sell SMOS"}
+          {isPending || isConfirming ? "Processing..." : isBuy ? "Buy KDIA" : "Sell KDIA"}
         </button>
       </TokenApprovalGuard>
 
