@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===============================
+   GLOBAL THEME
+================================ */
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #000;
+  color: #e5e7eb; /* slate-200 */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hide Web3Modal button ONLY inside Telegram mobile */
+body.telegram-mobile w3m-button {
+  display: none !important;
+}
+
+w3m-button {
+  display: none !important;
+}
+
+
+/* ===============================
+   BUTTONS
+================================ */
+
+.btn {
+  @apply w-full py-3 rounded-xl font-semibold transition-all duration-200;
+  background: linear-gradient(180deg, #0a0a0a, #000);
+  color: #facc15; /* yellow-400 */
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  box-shadow:
+    0 0 12px rgba(250, 204, 21, 0.15),
+    inset 0 0 8px rgba(250, 204, 21, 0.08);
+}
+
+.btn:hover {
+  box-shadow:
+    0 0 18px rgba(250, 204, 21, 0.35),
+    inset 0 0 12px rgba(250, 204, 21, 0.15);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-outline {
+  background: transparent;
+  color: #facc15;
+  border: 1px solid rgba(250, 204, 21, 0.6);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ===============================
+   INPUTS
+================================ */
+
+.input {
+  @apply w-full rounded-xl px-4 py-3 outline-none transition;
+  background: rgba(10, 10, 10, 0.85);
+  color: #f9fafb;
+  border: 1px solid rgba(250, 204, 21, 0.25);
+}
+
+.input::placeholder {
+  color: rgba(250, 204, 21, 0.35);
+}
+
+.input:focus {
+  border-color: #facc15;
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.35);
+}
+
+/* ===============================
+   CARDS / PANELS
+================================ */
+
+.card {
+  background: linear-gradient(
+    180deg,
+    rgba(15, 15, 15, 0.9),
+    rgba(5, 5, 5, 0.9)
+  );
+  border: 1px solid rgba(250, 204, 21, 0.25);
+  border-radius: 1rem;
+  box-shadow:
+    0 0 24px rgba(250, 204, 21, 0.12),
+    inset 0 0 12px rgba(250, 204, 21, 0.06);
+}
+
+/* ===============================
+   NEON PULSE GLOW (LOGO / HIGHLIGHTS)
+================================ */
+
+@keyframes glowPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.65;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+}
+
+.pulse-glow {
+  position: relative;
+}
+
+.pulse-glow::before {
+  content: "";
+  position: absolute;
+  inset: -16px;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgba(250, 204, 21, 0.7) 0%,
+    rgba(250, 204, 21, 0.25) 35%,
+    transparent 70%
+  );
+  filter: blur(14px);
+  animation: glowPulse 3s ease-in-out infinite;
+  z-index: 0;
+}
+
+/* ===============================
+   TEXT GLOW (HEADERS / KEY STATS)
+================================ */
+
+.text-neon {
+  color: #facc15;
+  text-shadow:
+    0 0 8px rgba(250, 204, 21, 0.6),
+    0 0 18px rgba(250, 204, 21, 0.35);
+}
+
+/* ===============================
+   SUBTLE GRID BACKGROUND (OPTIONAL)
+================================ */
+
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(250, 204, 21, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(250, 204, 21, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ───── Themed Containers ───── */
+.panel {
+  @apply rounded-xl bg-black/70 border border-yellow-400/20 p-4;
+}
+
+.panel-title {
+  @apply text-xs uppercase tracking-wide text-yellow-400/70;
+}
+
+.panel-value {
+  @apply mt-1 text-lg font-semibold text-neon;
+}
+
+/* Wallet Button Override */
+.wallet-btn {
+  @apply bg-black border border-yellow-400 text-yellow-400
+         hover:bg-yellow-400 hover:text-black
+         transition;
+}
+
+/* ============================================================
+   GLASS CARD (FUTURISTIC)
+============================================================ */
+
+.glass-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.06); /* lighter than bg */
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-radius: 1rem;
+
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 12px 30px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+/* Soft neon edge glow */
+.glass-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    0 0 18px rgba(250, 204, 21, 0.12),
+    0 0 40px rgba(250, 204, 21, 0.05);
+  opacity: 0.8;
+}
+
+   
