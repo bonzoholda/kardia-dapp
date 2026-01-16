@@ -38,7 +38,7 @@ export function Actions() {
 
   const puWait = useWaitForTransactionReceipt({ hash: puTx });
   const stakeWait = useWaitForTransactionReceipt({ hash: stakeTx });
-  const claimWait = useWaitForTransactionReceipt({ hash: claimWait });
+  const claimWait = useWaitForTransactionReceipt({ hash: claimTx }); // FIXED TYPO HERE
 
   useEffect(() => {
     if (puWait.isSuccess || stakeWait.isSuccess || claimWait.isSuccess) {
@@ -47,9 +47,8 @@ export function Actions() {
       if (stakeWait.isSuccess) { setStakeAmount(""); setStakeTx(undefined); }
       if (claimWait.isSuccess) { setClaimTx(undefined); }
     }
-  }, [puWait.isSuccess, stakeWait.isSuccess, claimWait.isSuccess]);
+  }, [puWait.isSuccess, stakeWait.isSuccess, claimWait.isSuccess, refetchAll, refetchUsdt, refetchKdia]);
 
-  // --- Handlers ---
   const handleAcquirePU = async () => {
     if (!ethersSigner || !puAmount) return;
     setIsBroadcasting(true);
@@ -102,36 +101,28 @@ export function Actions() {
   };
 
   if (!address) return (
-    <div className="glass-card p-10 text-center">
-        <p className="font-bold text-red-500/40 uppercase text-[10px] tracking-[0.3em] font-['Orbitron']">
-            Waiting for Connection
-        </p>
+    <div className="glass-card p-10 text-center font-bold text-red-500/40 uppercase text-[10px] tracking-widest font-['Orbitron']">
+      Connect Wallet
     </div>
   );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
-      {/* 1. ACQUIRE POWER (USDT) */}
-      <div className="glass-card p-6 space-y-4 border-t border-red-500/20">
+      {/* 1. ACQUIRE POWER */}
+      <div className="glass-card p-6 space-y-4">
         <div className="flex justify-between items-center">
-            <h4 className="panel-title font-['Orbitron'] text-red-500/80">Acquire Power</h4>
-            <div className="text-right">
-                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">USDT Wallet</p>
-                <p className="text-xs font-mono font-bold text-white/70">
-                    {usdtBalance ? Number(usdtBalance.formatted).toFixed(2) : "0.00"}
-                </p>
-            </div>
+          <h4 className="panel-title font-['Orbitron']">Acquire Power</h4>
+          <div className="text-right">
+            <span className="text-[9px] text-gray-500 uppercase font-bold tracking-widest block">USDT Balance</span>
+            <span className="text-xs font-mono text-red-500/80 font-bold">
+              {usdtBalance ? Number(usdtBalance.formatted).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+            </span>
+          </div>
         </div>
-        <input 
-            className="input h-14 font-mono" 
-            type="number" 
-            placeholder="0.00" 
-            value={puAmount} 
-            onChange={(e) => setPuAmount(e.target.value)} 
-        />
+        <input className="input h-14" type="number" placeholder="USDT Amount" value={puAmount} onChange={(e) => setPuAmount(e.target.value)} />
         <button className="btn h-14" disabled={!puAmount || isBroadcasting} onClick={handleAcquirePU}>
-          {statusMsg || "INITIATE PURCHASE"}
+          {statusMsg || "Acquire Power Units"}
         </button>
         <TxStatus hash={puTx} />
       </div>
@@ -139,23 +130,17 @@ export function Actions() {
       {/* 2. STAKE KDIA */}
       <div className="panel p-6 space-y-4 border-white/5">
         <div className="flex justify-between items-center">
-            <h4 className="panel-title font-['Orbitron']">Protocol Staking</h4>
-            <div className="text-right">
-                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Available KDIA</p>
-                <p className="text-xs font-mono font-bold text-white/70">
-                    {kdiaBalance ? Number(kdiaBalance.formatted).toFixed(2) : "0.00"}
-                </p>
-            </div>
+          <h4 className="panel-title font-['Orbitron']">Stake $KDIA</h4>
+          <div className="text-right">
+            <span className="text-[9px] text-gray-500 uppercase font-bold tracking-widest block">Available KDIA</span>
+            <span className="text-xs font-mono text-white/60 font-bold">
+              {kdiaBalance ? Number(kdiaBalance.formatted).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+            </span>
+          </div>
         </div>
-        <input 
-            className="input h-14 bg-black/20 font-mono" 
-            type="number" 
-            placeholder="0.00" 
-            value={stakeAmount} 
-            onChange={(e) => setStakeAmount(e.target.value)} 
-        />
+        <input className="input h-14 bg-black/20" type="number" placeholder="KDIA Amount" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} />
         <button className="btn-outline h-14 w-full" disabled={!stakeAmount || stakeSMOS.isPending} onClick={handleStake}>
-          {stakeSMOS.isPending ? "STAKING..." : "COMMIT $KDIA"}
+          {stakeSMOS.isPending ? "STAKING..." : "Stake KDIA"}
         </button>
         <TxStatus hash={stakeTx} />
       </div>
@@ -170,8 +155,8 @@ export function Actions() {
           {claimMiner.isPending ? "SYNCHRONIZING..." : "HARVEST MINING REWARDS"}
         </button>
         <TxStatus hash={claimTx} />
-        <p className="text-[9px] text-center text-gray-600 font-bold uppercase tracking-widest">
-            Does not reset 7-day stake lock
+        <p className="text-[8px] text-center text-gray-600 font-bold uppercase tracking-[0.2em] mt-1">
+          * Harvesting does not affect your 7-day stake lock duration.
         </p>
       </div>
       
