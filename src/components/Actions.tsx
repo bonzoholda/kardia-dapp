@@ -90,11 +90,17 @@ export function Actions() {
 
   const handleClaimRewards = async () => {
     try {
-      const hash = await claimMiner.writeContractAsync({ 
-        address: controller, abi: SPHYGMOS_CONTROLLER_ABI, functionName: "claimMinerRewards" 
+      // Calling 'stake' with 0 triggers '_settleMinerAccount' internally
+      const hash = await stakeSMOS.writeContractAsync({ 
+        address: controller, 
+        abi: SPHYGMOS_CONTROLLER_ABI, 
+        functionName: "stake",
+        args: [0n] // 0 amount triggers the reward claim logic
       });
       setClaimTx(hash);
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error("Harvest Error:", e); 
+    }
   };
 
   if (!address) return <div className="glass-card p-10 text-center font-bold text-red-500/40 uppercase text-[10px] tracking-widest">Connect Wallet</div>;
