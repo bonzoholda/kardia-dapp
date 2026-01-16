@@ -38,7 +38,7 @@ export function Actions() {
 
   const puWait = useWaitForTransactionReceipt({ hash: puTx });
   const stakeWait = useWaitForTransactionReceipt({ hash: stakeTx });
-  const claimWait = useWaitForTransactionReceipt({ hash: claimTx });
+  const claimWait = useWaitForTransactionReceipt({ hash: claimWait });
 
   useEffect(() => {
     if (puWait.isSuccess || stakeWait.isSuccess || claimWait.isSuccess) {
@@ -88,42 +88,74 @@ export function Actions() {
     } catch (e) { console.error(e); }
   };
 
-  const handleClaimRewards = async () => {
+  const handleClaim = async () => {
     try {
-      // Calling 'stake' with 0 triggers '_settleMinerAccount' internally
-      const hash = await stakeSMOS.writeContractAsync({ 
+      const hash = await claimMiner.writeContractAsync({ 
         address: controller, 
         abi: SPHYGMOS_CONTROLLER_ABI, 
-        functionName: "stake",
-        args: [0n] // 0 amount triggers the reward claim logic
+        functionName: "claimMinerRewards" 
       });
-      setClaimTx(hash);
-    } catch (e) { 
-      console.error("Harvest Error:", e); 
+      if (hash) setClaimTx(hash);
+    } catch (err) {
+      console.error("Claim failed:", err);
     }
   };
 
-  if (!address) return <div className="glass-card p-10 text-center font-bold text-red-500/40 uppercase text-[10px] tracking-widest">Connect Wallet</div>;
+  if (!address) return (
+    <div className="glass-card p-10 text-center">
+        <p className="font-bold text-red-500/40 uppercase text-[10px] tracking-[0.3em] font-['Orbitron']">
+            Waiting for Connection
+        </p>
+    </div>
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
-      {/* 1. ACQUIRE POWER */}
-      <div className="glass-card p-6 space-y-4">
-        <h4 className="panel-title font-['Orbitron']">Acquire Power</h4>
-        <input className="input h-14" type="number" placeholder="USDT Amount" value={puAmount} onChange={(e) => setPuAmount(e.target.value)} />
+      {/* 1. ACQUIRE POWER (USDT) */}
+      <div className="glass-card p-6 space-y-4 border-t border-red-500/20">
+        <div className="flex justify-between items-center">
+            <h4 className="panel-title font-['Orbitron'] text-red-500/80">Acquire Power</h4>
+            <div className="text-right">
+                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">USDT Wallet</p>
+                <p className="text-xs font-mono font-bold text-white/70">
+                    {usdtBalance ? Number(usdtBalance.formatted).toFixed(2) : "0.00"}
+                </p>
+            </div>
+        </div>
+        <input 
+            className="input h-14 font-mono" 
+            type="number" 
+            placeholder="0.00" 
+            value={puAmount} 
+            onChange={(e) => setPuAmount(e.target.value)} 
+        />
         <button className="btn h-14" disabled={!puAmount || isBroadcasting} onClick={handleAcquirePU}>
-          {statusMsg || "Acquire Power Units"}
+          {statusMsg || "INITIATE PURCHASE"}
         </button>
         <TxStatus hash={puTx} />
       </div>
 
       {/* 2. STAKE KDIA */}
-      <div className="panel p-6 space-y-4">
-        <h4 className="panel-title font-['Orbitron']">Stake $KDIA</h4>
-        <input className="input h-14 bg-black/20" type="number" placeholder="KDIA Amount" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} />
+      <div className="panel p-6 space-y-4 border-white/5">
+        <div className="flex justify-between items-center">
+            <h4 className="panel-title font-['Orbitron']">Protocol Staking</h4>
+            <div className="text-right">
+                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Available KDIA</p>
+                <p className="text-xs font-mono font-bold text-white/70">
+                    {kdiaBalance ? Number(kdiaBalance.formatted).toFixed(2) : "0.00"}
+                </p>
+            </div>
+        </div>
+        <input 
+            className="input h-14 bg-black/20 font-mono" 
+            type="number" 
+            placeholder="0.00" 
+            value={stakeAmount} 
+            onChange={(e) => setStakeAmount(e.target.value)} 
+        />
         <button className="btn-outline h-14 w-full" disabled={!stakeAmount || stakeSMOS.isPending} onClick={handleStake}>
-          {stakeSMOS.isPending ? "STAKING..." : "Stake KDIA"}
+          {stakeSMOS.isPending ? "STAKING..." : "COMMIT $KDIA"}
         </button>
         <TxStatus hash={stakeTx} />
       </div>
@@ -131,13 +163,16 @@ export function Actions() {
       {/* 3. HARVEST REWARDS */}
       <div className="space-y-2">
         <button 
-          className="w-full py-4 bg-transparent border border-dashed border-red-500/20 hover:border-red-500/50 hover:bg-red-500/5 text-red-500/60 rounded-xl font-bold text-[10px] uppercase tracking-[0.4em] transition-all"
+          className="w-full py-4 bg-transparent border border-dashed border-red-500/20 hover:border-red-500/50 hover:bg-red-500/5 text-red-500/60 rounded-xl font-bold text-[10px] uppercase tracking-[0.4em] transition-all disabled:opacity-30"
           disabled={claimMiner.isPending} 
-          onClick={handleClaimRewards}
+          onClick={handleClaim}
         >
           {claimMiner.isPending ? "SYNCHRONIZING..." : "HARVEST MINING REWARDS"}
         </button>
         <TxStatus hash={claimTx} />
+        <p className="text-[9px] text-center text-gray-600 font-bold uppercase tracking-widest">
+            Does not reset 7-day stake lock
+        </p>
       </div>
       
     </div>
