@@ -156,7 +156,7 @@ body.telegram-mobile w3m-button, w3m-button {
 }
 
 /* ===============================
-   NEON PULSE GLOW (LOGO / HIGHLIGHTS)
+   NEON PULSE GLOW (RED HEART THEME)
 ================================ */
 
 @keyframes glowPulse {
@@ -166,7 +166,7 @@ body.telegram-mobile w3m-button, w3m-button {
   }
   50% {
     transform: scale(1.12);
-    opacity: 0.65;
+    opacity: 0.75; /* Slightly increased for better red visibility */
   }
   100% {
     transform: scale(1);
@@ -185,11 +185,11 @@ body.telegram-mobile w3m-button, w3m-button {
   border-radius: 9999px;
   background: radial-gradient(
     circle,
-    rgba(250, 204, 21, 0.7) 0%,
-    rgba(250, 204, 21, 0.25) 35%,
+    rgba(220, 38, 38, 0.7) 0%,   /* tailwind red-600 */
+    rgba(185, 28, 28, 0.35) 35%, /* tailwind red-700 */
     transparent 70%
   );
-  filter: blur(14px);
+  filter: blur(18px); /* Increased blur slightly for a softer, more "organic" heart glow */
   animation: glowPulse 3s ease-in-out infinite;
   z-index: 0;
 }
