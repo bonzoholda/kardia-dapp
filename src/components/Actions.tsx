@@ -38,7 +38,7 @@ export function Actions() {
 
   const puWait = useWaitForTransactionReceipt({ hash: puTx });
   const stakeWait = useWaitForTransactionReceipt({ hash: stakeTx });
-  const claimWait = useWaitForTransactionReceipt({ hash: claimTx }); // FIXED TYPO HERE
+  const claimWait = useWaitForTransactionReceipt({ hash: claimTx });
 
   useEffect(() => {
     if (puWait.isSuccess || stakeWait.isSuccess || claimWait.isSuccess) {
@@ -139,7 +139,7 @@ export function Actions() {
           </div>
         </div>
         <input className="input h-14 bg-black/20" type="number" placeholder="KDIA Amount" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} />
-        <button className="btn-outline h-14 w-full" disabled={!stakeAmount || stakeSMOS.isPending} onClick={handleStake}>
+        <button className="btn h-14 w-full" disabled={!stakeAmount || stakeSMOS.isPending} onClick={handleStake}>
           {stakeSMOS.isPending ? "STAKING..." : "Stake KDIA"}
         </button>
         <TxStatus hash={stakeTx} />
@@ -148,7 +148,7 @@ export function Actions() {
       {/* 3. HARVEST REWARDS */}
       <div className="space-y-2">
         <button 
-          className="w-full py-4 bg-transparent border border-dashed border-red-500/20 hover:border-red-500/50 hover:bg-red-500/5 text-red-500/60 rounded-xl font-bold text-[10px] uppercase tracking-[0.4em] transition-all disabled:opacity-30"
+          className="btn h-14 w-full"
           disabled={claimMiner.isPending} 
           onClick={handleClaim}
         >
