@@ -32,17 +32,11 @@ export default function App() {
   // Optimized Telegram Detection
   const tg = useMemo(() => {
     const telegramApp = (window as any).Telegram?.WebApp;
-    // Only return if we are actually inside the Telegram environment
     return telegramApp?.platform !== 'unknown' ? telegramApp : null;
   }, []);
 
-  /**
-   * Telegram Native Integration
-   * This effect manages the Telegram Main Button and App Expansion
-   */
   useEffect(() => {
     if (!tg) return;
-
     tg.ready();
     tg.expand();
 
@@ -51,7 +45,6 @@ export default function App() {
       tg.MainButton.show();
       
       const handleMainButtonClick = () => {
-        // Haptic feedback for the click
         if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred("medium");
         open();
       };
@@ -66,7 +59,6 @@ export default function App() {
     }
   }, [tg, isConnected, open]);
 
-  // Enhanced Tab Switcher with Haptic Feedback
   const toggleTab = (tab: "mining" | "trade") => {
     setActiveTab(tab);
     if (tg?.HapticFeedback) {
@@ -76,7 +68,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-black bg-grid p-4 pb-24 md:p-6">
-      {/* ───── Logo ───── */}
       <div className="flex justify-center mb-8">
         <div className="pulse-glow">
           <img
@@ -88,24 +79,24 @@ export default function App() {
       </div>
 
       <div className="max-w-md mx-auto space-y-6">
-        {/* ───── Tab Navigation ───── */}
-        <div className="flex bg-slate-900/50 p-1 rounded-xl border border-yellow-400/20 shadow-inner">
+        {/* ───── TAB NAVIGATION: GLASSY RED HEART THEME ───── */}
+        <div className="flex bg-red-950/20 p-1 rounded-xl border border-red-500/20 shadow-inner backdrop-blur-md">
           <button
             onClick={() => toggleTab("mining")}
-            className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all duration-300 ${
+            className={`flex-1 py-3 rounded-lg text-xs font-bold font-['Orbitron'] tracking-widest transition-all duration-300 ${
               activeTab === "mining" 
-                ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20" 
-                : "text-slate-400 hover:text-white"
+                ? "bg-gradient-to-r from-red-600 to-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)]" 
+                : "text-red-500/40 hover:text-red-400 hover:bg-red-500/5"
             }`}
           >
             MINING HUB
           </button>
           <button
             onClick={() => toggleTab("trade")}
-            className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all duration-300 ${
+            className={`flex-1 py-3 rounded-lg text-xs font-bold font-['Orbitron'] tracking-widest transition-all duration-300 ${
               activeTab === "trade" 
-                ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20" 
-                : "text-slate-400 hover:text-white"
+                ? "bg-gradient-to-r from-red-600 to-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)]" 
+                : "text-red-500/40 hover:text-red-400 hover:bg-red-500/5"
             }`}
           >
             TRADE KDIA
@@ -119,7 +110,6 @@ export default function App() {
               The Heartbeat of Perpetual DeFi
             </h3>
 
-            {/* FIX: Ensure the button is visible everywhere if the MainButton isn't showing */}
             <div className="flex justify-center">
               <ConnectWallet />
             </div>
@@ -133,9 +123,8 @@ export default function App() {
             <Stats />
             <DripStats />
 
-            <hr className="border-yellow-400/10" />
+            <hr className="border-red-500/10" />
 
-            {/* Smart Contract Interaction Guards */}
             {CONTROLLER_ADDRESS && (
               <TokenApprovalGuard 
                 tokenAddress={MOCK_USDT_ADDRESS}
@@ -162,13 +151,10 @@ export default function App() {
   );
 }
 
-/**
- * Re-usable Stat Component
- */
 function Stat({ label, value, decimals }: { label: string; value?: bigint; decimals: number; }) {
   return (
-    <div className="rounded-xl bg-black/70 border border-yellow-400/20 p-3 text-center">
-      <div className="text-xs text-yellow-400/70">{label}</div>
+    <div className="rounded-xl bg-black/70 border border-red-500/20 p-3 text-center">
+      <div className="text-xs text-red-500/70 font-bold uppercase tracking-tighter">{label}</div>
       <div className="mt-1 text-base font-semibold text-white">
         {value !== undefined ? fmt(value, decimals, 2) : "—"}
       </div>
