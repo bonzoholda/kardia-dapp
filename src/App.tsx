@@ -66,21 +66,23 @@ export default function App() {
     }
   };
 
-  return (
-    <div class="fixed top-6 left-6 z-50">
-        <a href="https://bonzoholda.github.io/sphygmos-protocol/" 
-           class="glass p-3 rounded-full flex items-center justify-center hover:scale-110 transition-transform duration-300 group border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
-            
-            <svg xmlns="http://www.w3.org/2000/svg" 
-                 class="h-6 w-6 text-red-500 group-hover:text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]" 
-                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
+  return (   
+    <div className="min-h-screen bg-black bg-grid p-4 pb-24 md:p-6 relative">
+      
+      {/* ───── HOME LOGO NAVIGATION ───── */}
+      <div className="fixed top-4 left-4 z-[100] md:top-6 md:left-6">
+        <a 
+          href="https://bonzoholda.github.io/sphygmos-protocol/" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-950/40 border border-red-500/30 backdrop-blur-md hover:scale-110 active:scale-95 transition-all duration-300 shadow-[0_0_15px_rgba(220,38,38,0.2)]"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
         </a>
-    </div>
-    
-    <div className="min-h-screen bg-black bg-grid p-4 pb-24 md:p-6">
+      </div>
+
       <div className="flex justify-center mb-8">
         <div className="pulse-glow">
           <img
@@ -92,7 +94,7 @@ export default function App() {
       </div>
 
       <div className="max-w-md mx-auto space-y-6">
-        {/* ───── TAB NAVIGATION: GLASSY RED HEART THEME ───── */}
+        {/* ───── TAB NAVIGATION ───── */}
         <div className="flex bg-red-950/20 p-1 rounded-xl border border-red-500/20 shadow-inner backdrop-blur-md">
           <button
             onClick={() => toggleTab("mining")}
@@ -156,7 +158,7 @@ export default function App() {
           </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <SwapTrading />
+              <SwapTrading />
           </div>
         )}
       </div>
