@@ -13,8 +13,8 @@ import { TxStatus } from "./TxStatus";
 const ROUTER_ADDRESS = import.meta.env.VITE_ROUTER_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
 const KDIA_ADDRESS = import.meta.env.VITE_KDIA_ADDRESS as `0x${string}`;
-const WBTC_ADDRESS = import.meta.env.VITE_WBTC_ADDRESS as `0x${string}`; // BTCB on Mainnet
-const WBNB_ADDRESS = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"; // Bridge for BNB Chain
+const WBTC_ADDRESS = import.meta.env.VITE_WBTC_ADDRESS as `0x${string}`; // This is BTCB
+const WBNB_ADDRESS = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c";
 
 const ROUTER_ABI = [
   {
@@ -45,27 +45,31 @@ export function SwapTrading() {
   const [amountIn, setAmountIn] = useState("");
   const [txHash, setTxHash] = useState<`0x${string}`>();
   
-  const SLIPPAGE_BPS = 9800n; 
+  const SLIPPAGE_BPS = 9500n; // Adjusted to 5% for small liquidity stability
   const tokenIn = isBuy ? USDT_ADDRESS : KDIA_ADDRESS;
 
-  // FIXED: Multi-hop pathing to bridge KDIA/BTCB through WBNB to reach USDT
+  // Path: KDIA <-> BTCB <-> USDT (Standard 3-hop)
+  // If this returns 0, it means PancakeSwap's USDT/BTCB liquidity is low.
   const smartPath = useMemo(() => {
     if (!USDT_ADDRESS || !KDIA_ADDRESS || !WBTC_ADDRESS) return [];
     return isBuy 
-      ? [USDT_ADDRESS, WBNB_ADDRESS, WBTC_ADDRESS, KDIA_ADDRESS] 
-      : [KDIA_ADDRESS, WBTC_ADDRESS, WBNB_ADDRESS, USDT_ADDRESS];
+      ? [USDT_ADDRESS, WBTC_ADDRESS, KDIA_ADDRESS] 
+      : [KDIA_ADDRESS, WBTC_ADDRESS, USDT_ADDRESS];
   }, [isBuy]);
 
   const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
   const { data: kdiaData, refetch: refetchKdia } = useBalance({ address, token: KDIA_ADDRESS });
 
-  // FIXED: Pricing path to include WBNB bridge
+  // Get price through the same path we trade
   const { data: priceData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: [parseUnits("1", 18), [KDIA_ADDRESS, WBTC_ADDRESS, WBNB_ADDRESS, USDT_ADDRESS]],
-    query: { enabled: !!ROUTER_ADDRESS }
+    args: [parseUnits("1", 18), [KDIA_ADDRESS, WBTC_ADDRESS, USDT_ADDRESS]],
+    query: { 
+        enabled: !!ROUTER_ADDRESS,
+        refetchInterval: 10000 
+    }
   });
 
   const { data: quoteData } = useReadContract({
@@ -76,7 +80,6 @@ export function SwapTrading() {
     query: { enabled: !!amountIn && Number(amountIn) > 0 }
   });
 
-  // FIXED: Using dynamic index (length - 1) for price and quote
   const kdiaPriceUSDT = priceData ? Number(formatUnits(priceData[priceData.length - 1], 18)).toFixed(4) : "0.00";
   const estimatedOutRaw = quoteData ? quoteData[quoteData.length - 1] : 0n;
   const estimatedOut = estimatedOutRaw ? Number(formatUnits(estimatedOutRaw, 18)).toFixed(4) : "0.0000";
@@ -113,7 +116,9 @@ export function SwapTrading() {
           <h2 className="text-xl font-bold tracking-tighter text-white font-['Orbitron']">SWAP HUB</h2>
           <div className="flex items-center gap-2 mt-1">
             <span className="live-indicator"></span>
-            <p className="text-[10px] font-medium text-red-500/80 uppercase tracking-widest">1 KDIA ≈ {kdiaPriceUSDT} USDT</p>
+            <p className="text-[10px] font-medium text-red-500/80 uppercase tracking-widest">
+              1 KDIA ≈ {kdiaPriceUSDT} USDT
+            </p>
           </div>
         </div>
         <button 
@@ -144,7 +149,6 @@ export function SwapTrading() {
         <div className="panel bg-white/[0.02]">
           <p className="panel-title">Receive (Est.)</p>
           <p className={`text-3xl font-bold mt-2 ${estimatedOut !== "0.0000" ? "text-white" : "text-gray-600"}`}>
-            {/* Added international formatting here for consistency */}
             {Number(estimatedOut).toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
           </p>
         </div>
@@ -165,7 +169,7 @@ export function SwapTrading() {
       {estimatedOut === "0.0000" && amountIn && (
         <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
           <p className="text-[10px] text-red-500 text-center font-bold tracking-widest uppercase">
-            Insufficient Liquidity Path
+             Route Not Found / Low Liquidity
           </p>
         </div>
       )}
