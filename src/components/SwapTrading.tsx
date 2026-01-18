@@ -44,7 +44,9 @@ export function SwapTrading() {
   const [amountIn, setAmountIn] = useState("");
   const [txHash, setTxHash] = useState<`0x${string}`>();
   
-  // path logic mirroring your SMOS setup but using BTCB as the link
+  const tokenIn = isBuy ? USDT_ADDRESS : KDIA_ADDRESS;
+
+  // Pathing KDIA through BTCB to reach USDT
   const smartPath = useMemo(() => {
     return isBuy 
       ? [USDT_ADDRESS, BTCB_ADDRESS, KDIA_ADDRESS] 
@@ -54,13 +56,14 @@ export function SwapTrading() {
   const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
   const { data: kdiaData, refetch: refetchKdia } = useBalance({ address, token: KDIA_ADDRESS });
 
-  // FETCH PRICE: KDIA -> BTCB -> USDT
+  // FIXED: Liquidity Bypass. 
+  // We check the price of 0.0001 KDIA to avoid "Insufficient Liquidity" reverts on the $71 pool.
+  const checkAmount = parseUnits("0.0001", 18);
   const { data: priceData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
     functionName: "getAmountsOut",
-    // We use a small amount (0.1) for the check if 1.0 is failing due to liquidity depth
-    args: [parseUnits("1", 18), [KDIA_ADDRESS, BTCB_ADDRESS, USDT_ADDRESS]],
+    args: [checkAmount, [KDIA_ADDRESS, BTCB_ADDRESS, USDT_ADDRESS]],
     query: { enabled: !!ROUTER_ADDRESS, refetchInterval: 10000 }
   });
 
@@ -72,10 +75,11 @@ export function SwapTrading() {
     query: { enabled: !!amountIn && Number(amountIn) > 0 }
   });
 
-  // Calculate price from the last index of the returned array
+  // Calculate price of 1 full KDIA by multiplying the tiny check result by 10,000
   const kdiaPriceUSDT = useMemo(() => {
     if (!priceData || priceData.length < 3) return "0.00";
-    return Number(formatUnits(priceData[2], 18)).toFixed(4);
+    const rawPrice = Number(formatUnits(priceData[2], 18));
+    return (rawPrice * 10000).toFixed(4); 
   }, [priceData]);
 
   const estimatedOutRaw = quoteData ? quoteData[quoteData.length - 1] : 0n;
@@ -94,7 +98,8 @@ export function SwapTrading() {
   const handleSwap = async () => {
     if (!estimatedOutRaw || !address) return;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-    const minOut = (estimatedOutRaw * 9000n) / 10000n; // 10% slippage for low liquidity stability
+    // 10% Slippage - Highly recommended for $71 liquidity to avoid "Slippage Error" reverts
+    const minOut = (estimatedOutRaw * 9000n) / 10000n; 
     try {
       const hash = await writeContractAsync({
         address: ROUTER_ADDRESS,
@@ -110,13 +115,16 @@ export function SwapTrading() {
     <div className="glass-card p-6 space-y-6">
       <div className="flex justify-between items-center border-b border-red-500/10 pb-4">
         <div>
-          <h2 className="text-xl font-bold tracking-tighter text-white font-['Orbitron'] uppercase">Swap Hub</h2>
+          <h2 className="text-xl font-bold tracking-tighter text-white font-['Orbitron']">SWAP HUB</h2>
           <div className="flex items-center gap-2 mt-1">
             <span className="live-indicator"></span>
             <p className="text-[10px] font-medium text-red-500/80 uppercase">1 KDIA ≈ {kdiaPriceUSDT} USDT</p>
           </div>
         </div>
-        <button onClick={() => { setIsBuy(!isBuy); setAmountIn(""); }} className="btn-outline text-[10px] px-4 py-2 rounded-lg">
+        <button 
+          onClick={() => { setIsBuy(!isBuy); setAmountIn(""); }}
+          className="btn-outline text-[10px] px-4 py-2 rounded-lg"
+        >
           {isBuy ? "SELL KDIA" : "BUY KDIA"}
         </button>
       </div>
@@ -141,18 +149,30 @@ export function SwapTrading() {
         <div className="panel bg-white/[0.02]">
           <p className="panel-title">Receive (Est.)</p>
           <p className={`text-3xl font-bold mt-2 ${estimatedOut !== "0.0000" ? "text-white" : "text-gray-600"}`}>
-             {Number(estimatedOut).toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+            {Number(estimatedOut).toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
           </p>
         </div>
       </div>
 
-      <TokenApprovalGuard tokenAddress={isBuy ? USDT_ADDRESS : KDIA_ADDRESS} spenderAddress={ROUTER_ADDRESS} amountRequired={amountIn || "0"}>
-        <button onClick={handleSwap} disabled={!amountIn || estimatedOut === "0.0000" || isPending} className="btn">
-          {isPending ? "PROCESSING..." : isBuy ? "CONFIRM PURCHASE" : "CONFIRM LIQUIDATION"}
+      <TokenApprovalGuard tokenAddress={tokenIn} spenderAddress={ROUTER_ADDRESS} amountRequired={amountIn || "0"}>
+        <button
+          onClick={handleSwap}
+          disabled={!amountIn || estimatedOut === "0.0000" || isPending || isConfirming}
+          className="btn"
+        >
+          {isPending || isConfirming ? "PROCESSING..." : isBuy ? "CONFIRM PURCHASE" : "CONFIRM LIQUIDATION"}
         </button>
       </TokenApprovalGuard>
 
       <TxStatus hash={txHash} />
+
+      {estimatedOut === "0.0000" && amountIn && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+          <p className="text-[10px] text-red-500 text-center font-bold tracking-widest uppercase">
+            Liquidity too low for this amount
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -160,9 +180,12 @@ export function SwapTrading() {
 function BalanceChip({ label, val, neon }: { label: string; val?: string; neon?: boolean }) {
   return (
     <div className="panel p-3">
-      <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">{label}</p>
+      <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">{label} Balance</p>
       <p className={`text-lg font-semibold mt-1 ${neon ? "text-neon" : "text-white"}`}>
-        {Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        {Number(val || 0).toLocaleString('en-US', { 
+          minimumFractionDigits: 2, 
+          maximumFractionDigits: 2 
+        })}
       </p>
     </div>
   );
