@@ -105,6 +105,13 @@ export function SwapTrading() {
   const { writeContractAsync, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
 
+  // This format is more robust for Mobile dApp browsers
+  const getPancakeSwapLink = () => {
+    const baseUrl = "https://pancakeswap.finance/swap";
+    // Adding chainId=56 forces the mobile app to stay on BSC
+    return `${baseUrl}?inputCurrency=${USDT_ADDRESS}&outputCurrency=${KDIA_ADDRESS}&chainId=56`;
+  };
+  
   useEffect(() => {
     if (isSuccess) {
       refetchUsdt(); refetchKdia();
@@ -176,12 +183,19 @@ export function SwapTrading() {
       {/* EMERGENCY EXTERNAL LINK */}
       <div className="pt-2">
         <a 
-          href={PANCAKESWAP_LINK} 
+          href={getPancakeSwapLink()} 
           target="_blank" 
           rel="noopener noreferrer"
+          // This helps mobile wallets treat it as an internal navigation if possible
+          onClick={(e) => {
+            if (window.ethereum && /iPhone|Android|iPad/i.test(navigator.userAgent)) {
+              // If we are in a mobile dApp browser, try to force the location
+              window.location.href = getPancakeSwapLink();
+            }
+          }}
           className="block w-full text-center py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all text-[11px] font-bold tracking-widest text-gray-400 hover:text-white uppercase"
         >
-          Can't Swap? Trade on PancakeSwap ↗
+          Trade on PancakeSwap ↗
         </a>
       </div>
 
