@@ -22,7 +22,7 @@ export const wagmiConfig = createConfig({
     [bsc.id]: fallback([
       // 1. High Security (MEV Protection)
       //http("https://rpc-bsc.48.club"),
-      http("https://bsc-mev.pancakeswap.finance"),
+      http("https://bscrpc.pancakeswap.finance"),
       // 1.b. next option
       http("https://bsc.mev-share.flashbots.net"),
       // 2. High Reliability (PancakeSwap Private Node)
