@@ -14,6 +14,18 @@ const ROUTER_ADDRESS = import.meta.env.VITE_ROUTER_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
 const KDIA_ADDRESS = import.meta.env.VITE_KDIA_ADDRESS as `0x${string}`;
 const BTCB_ADDRESS = "0x7130d2A12B9BCbFAe4f2634d864A1ee1Ce3Ead9c";
+const KDIA_BTCB_PAIR = "0xD11c2c4881a69f9943D85d6317432Eb8Ec8aaAa2";
+
+const PAIR_ABI = [
+  {
+    inputs: [],
+    name: "getReserves",
+    outputs: [{ name: "_reserve0", type: "uint112" }, { name: "_reserve1", type: "uint112" }, { name: "_blockTimestampLast", type: "uint32" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  { inputs: [], name: "token0", outputs: [{ type: "address" }], stateMutability: "view", type: "function" }
+] as const;
 
 const ROUTER_ABI = [
   {
@@ -46,27 +58,51 @@ export function SwapTrading() {
   
   const tokenIn = isBuy ? USDT_ADDRESS : KDIA_ADDRESS;
 
-  // Pathing KDIA through BTCB to reach USDT
-  const smartPath = useMemo(() => {
-    return isBuy 
-      ? [USDT_ADDRESS, BTCB_ADDRESS, KDIA_ADDRESS] 
-      : [KDIA_ADDRESS, BTCB_ADDRESS, USDT_ADDRESS];
-  }, [isBuy]);
+  // 1. Pathing for the actual Swap: [USDT, BTCB, KDIA]
+  const smartPath = useMemo(() => isBuy 
+    ? [USDT_ADDRESS, BTCB_ADDRESS, KDIA_ADDRESS] 
+    : [KDIA_ADDRESS, BTCB_ADDRESS, USDT_ADDRESS], [isBuy]);
 
+  // 2. Data Fetching
   const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
   const { data: kdiaData, refetch: refetchKdia } = useBalance({ address, token: KDIA_ADDRESS });
 
-  // FIXED: Liquidity Bypass. 
-  // We check the price of 0.0001 KDIA to avoid "Insufficient Liquidity" reverts on the $71 pool.
-  const checkAmount = parseUnits("0.0001", 18);
-  const { data: priceData } = useReadContract({
+  // 3. Direct Reserve Fetching (Bypasses Router simulation for the price display)
+  const { data: reserves } = useReadContract({
+    address: KDIA_BTCB_PAIR,
+    abi: PAIR_ABI,
+    functionName: "getReserves",
+    query: { refetchInterval: 5000 }
+  });
+
+  const { data: token0 } = useReadContract({ address: KDIA_BTCB_PAIR, abi: PAIR_ABI, functionName: "token0" });
+
+  // 4. Fetch BTCB Price in USDT to calculate KDIA USD value
+  const { data: btcToUsdtData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: [checkAmount, [KDIA_ADDRESS, BTCB_ADDRESS, USDT_ADDRESS]],
-    query: { enabled: !!ROUTER_ADDRESS, refetchInterval: 10000 }
+    args: [parseUnits("1", 18), [BTCB_ADDRESS, USDT_ADDRESS]],
+    query: { enabled: !!ROUTER_ADDRESS }
   });
 
+  // 5. Mathematical Price Calculation (Reserve Ratio * BTC Price)
+  const kdiaPriceUSDT = useMemo(() => {
+    if (!reserves || !btcToUsdtData || !token0) return "0.00";
+    
+    const r0 = Number(formatUnits(reserves[0], 18));
+    const r1 = Number(formatUnits(reserves[1], 18));
+    const btcPrice = Number(formatUnits(btcToUsdtData[1], 18));
+
+    const isKdiaToken0 = token0.toLowerCase() === KDIA_ADDRESS.toLowerCase();
+    const kdiaRes = isKdiaToken0 ? r0 : r1;
+    const btcbRes = isKdiaToken0 ? r1 : r0;
+
+    if (kdiaRes === 0) return "0.00";
+    return ((btcbRes / kdiaRes) * btcPrice).toFixed(4);
+  }, [reserves, btcToUsdtData, token0]);
+
+  // 6. Quote for User Trade (Might still be 0 if trade size is too big for $71 liquidity)
   const { data: quoteData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
@@ -74,13 +110,6 @@ export function SwapTrading() {
     args: amountIn && Number(amountIn) > 0 ? [parseUnits(amountIn, 18), smartPath] : undefined,
     query: { enabled: !!amountIn && Number(amountIn) > 0 }
   });
-
-  // Calculate price of 1 full KDIA by multiplying the tiny check result by 10,000
-  const kdiaPriceUSDT = useMemo(() => {
-    if (!priceData || priceData.length < 3) return "0.00";
-    const rawPrice = Number(formatUnits(priceData[2], 18));
-    return (rawPrice * 10000).toFixed(4); 
-  }, [priceData]);
 
   const estimatedOutRaw = quoteData ? quoteData[quoteData.length - 1] : 0n;
   const estimatedOut = estimatedOutRaw ? Number(formatUnits(estimatedOutRaw, 18)).toFixed(4) : "0.0000";
@@ -98,8 +127,7 @@ export function SwapTrading() {
   const handleSwap = async () => {
     if (!estimatedOutRaw || !address) return;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-    // 10% Slippage - Highly recommended for $71 liquidity to avoid "Slippage Error" reverts
-    const minOut = (estimatedOutRaw * 9000n) / 10000n; 
+    const minOut = (estimatedOutRaw * 8500n) / 10000n; // 15% slippage due to extremely low liquidity
     try {
       const hash = await writeContractAsync({
         address: ROUTER_ADDRESS,
@@ -121,10 +149,7 @@ export function SwapTrading() {
             <p className="text-[10px] font-medium text-red-500/80 uppercase">1 KDIA ≈ {kdiaPriceUSDT} USDT</p>
           </div>
         </div>
-        <button 
-          onClick={() => { setIsBuy(!isBuy); setAmountIn(""); }}
-          className="btn-outline text-[10px] px-4 py-2 rounded-lg"
-        >
+        <button onClick={() => { setIsBuy(!isBuy); setAmountIn(""); }} className="btn-outline text-[10px] px-4 py-2 rounded-lg">
           {isBuy ? "SELL KDIA" : "BUY KDIA"}
         </button>
       </div>
@@ -149,7 +174,7 @@ export function SwapTrading() {
         <div className="panel bg-white/[0.02]">
           <p className="panel-title">Receive (Est.)</p>
           <p className={`text-3xl font-bold mt-2 ${estimatedOut !== "0.0000" ? "text-white" : "text-gray-600"}`}>
-            {Number(estimatedOut).toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+            {estimatedOut}
           </p>
         </div>
       </div>
@@ -167,11 +192,9 @@ export function SwapTrading() {
       <TxStatus hash={txHash} />
 
       {estimatedOut === "0.0000" && amountIn && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-          <p className="text-[10px] text-red-500 text-center font-bold tracking-widest uppercase">
-            Liquidity too low for this amount
-          </p>
-        </div>
+        <p className="text-[10px] text-red-500 text-center font-bold animate-pulse uppercase tracking-widest">
+          Trade size too large for current liquidity
+        </p>
       )}
     </div>
   );
@@ -180,12 +203,9 @@ export function SwapTrading() {
 function BalanceChip({ label, val, neon }: { label: string; val?: string; neon?: boolean }) {
   return (
     <div className="panel p-3">
-      <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">{label} Balance</p>
+      <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">{label}</p>
       <p className={`text-lg font-semibold mt-1 ${neon ? "text-neon" : "text-white"}`}>
-        {Number(val || 0).toLocaleString('en-US', { 
-          minimumFractionDigits: 2, 
-          maximumFractionDigits: 2 
-        })}
+        {Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </p>
     </div>
   );
