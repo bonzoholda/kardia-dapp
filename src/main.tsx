@@ -3,21 +3,17 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
-ReactDOM.createRoot(document.getElementById('root')!).render(<App />);
-
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { wagmiConfig } from "./config/wagmi";
 import { createWeb3Modal } from "@web3modal/wagmi/react";
-
 import { init, openLink } from "@telegram-apps/sdk-react";
 
-// ---- Telegram setup (SAFE) ----
+// 1. ---- Telegram & Global Setup ----
 if (typeof window !== "undefined") {
   (window as any).global = window;
 
   const tg = (window as any).Telegram?.WebApp;
-  // Initialize only if we are in a Telegram environment
   if (tg && tg.platform !== "unknown") {
     if (tg.platform === "android" || tg.platform === "ios") {
       document.body.classList.add("telegram-mobile");
@@ -30,7 +26,7 @@ if (typeof window !== "undefined") {
   }
 }
 
-// ---- Web3Modal ----
+// 2. ---- Web3Modal Initialization ----
 const projectId = "0e067b77e88bde54e08e5d0a94da2cc6";
 
 createWeb3Modal({
@@ -40,17 +36,13 @@ createWeb3Modal({
   themeMode: "dark",
 });
 
-// ---- Telegram-safe WalletConnect escape ----
+// 3. ---- Telegram-safe WalletConnect escape ----
 if (typeof window !== "undefined") {
   const tg = (window as any).Telegram?.WebApp;
-
   if (tg && (tg.platform === "android" || tg.platform === "ios")) {
     const originalOpen = window.open;
-
     window.open = (url?: string | URL, target?: string) => {
       const str = typeof url === "string" ? url : url?.toString();
-
-      // 1. Detect WalletConnect OR direct wallet schemes (metamask:, trust:, tpouter:, etc.)
       const isWalletLink = str && (
         str.startsWith("wc:") || 
         str.includes("walletconnect") || 
@@ -59,8 +51,6 @@ if (typeof window !== "undefined") {
       );
 
       if (isWalletLink) {
-        // 2. Escape the WebView using the Telegram Native Bridge
-        // tryBrowser: 'chrome' is the industry proven flag to force Android app-switching
         try {
           openLink(str, { tryBrowser: 'chrome' } as any);
           return null; 
@@ -69,13 +59,12 @@ if (typeof window !== "undefined") {
           return originalOpen(str, "_blank");
         }
       }
-
       return originalOpen(url as any, target);
     };
   }
 }
 
-// ---- React render ----
+// 4. ---- Final Single Render ----
 const queryClient = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
