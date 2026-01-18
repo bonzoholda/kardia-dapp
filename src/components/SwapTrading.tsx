@@ -16,6 +16,9 @@ const KDIA_ADDRESS = import.meta.env.VITE_KDIA_ADDRESS as `0x${string}`;
 const WBTC_ADDRESS = import.meta.env.VITE_WBTC_ADDRESS as `0x${string}`;
 const KDIA_BTCB_PAIR = "0xD11c2c4881a69f9943D85d6317432Eb8Ec8aaAa2";
 
+// Official PancakeSwap Swap Link with pre-filled tokens
+const PANCAKESWAP_LINK = `https://pancakeswap.finance/swap?inputCurrency=${USDT_ADDRESS}&outputCurrency=${KDIA_ADDRESS}`;
+
 const PAIR_ABI = [
   {
     inputs: [],
@@ -57,16 +60,13 @@ export function SwapTrading() {
   
   const tokenIn = isBuy ? USDT_ADDRESS : KDIA_ADDRESS;
 
-  // 1. Pathing
   const smartPath = useMemo(() => isBuy 
     ? [USDT_ADDRESS, WBTC_ADDRESS, KDIA_ADDRESS] 
     : [KDIA_ADDRESS, WBTC_ADDRESS, USDT_ADDRESS], [isBuy]);
 
-  // 2. Balances (Original working logic)
   const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
   const { data: kdiaData, refetch: refetchKdia } = useBalance({ address, token: KDIA_ADDRESS });
 
-  // 3. Price Logic (Direct Reserve Reading)
   const { data: reserves } = useReadContract({
     address: KDIA_BTCB_PAIR,
     abi: PAIR_ABI,
@@ -83,16 +83,14 @@ export function SwapTrading() {
   const kdiaPriceUSDT = useMemo(() => {
     if (!reserves || !btcToUsdtData) return "0.00";
     try {
-      const r0 = Number(formatUnits(reserves[0], 18)); // KDIA
-      const r1 = Number(formatUnits(reserves[1], 18)); // BTCB
+      const r0 = Number(formatUnits(reserves[0], 18)); 
+      const r1 = Number(formatUnits(reserves[1], 18)); 
       const btcPrice = Number(formatUnits(btcToUsdtData[1], 18));
-      
       if (r0 === 0) return "0.00";
       return ((r1 / r0) * btcPrice).toFixed(4);
     } catch (e) { return "0.00"; }
   }, [reserves, btcToUsdtData]);
 
-  // 4. Quoting
   const { data: quoteData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
@@ -117,7 +115,7 @@ export function SwapTrading() {
   const handleSwap = async () => {
     if (!estimatedOutRaw || !address) return;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-    const minOut = (estimatedOutRaw * 8500n) / 10000n; // 15% slippage
+    const minOut = (estimatedOutRaw * 8500n) / 10000n; 
     try {
       const hash = await writeContractAsync({
         address: ROUTER_ADDRESS,
@@ -174,6 +172,18 @@ export function SwapTrading() {
           {isPending || isConfirming ? "PROCESSING..." : isBuy ? "CONFIRM PURCHASE" : "CONFIRM LIQUIDATION"}
         </button>
       </TokenApprovalGuard>
+
+      {/* EMERGENCY EXTERNAL LINK */}
+      <div className="pt-2">
+        <a 
+          href={PANCAKESWAP_LINK} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="block w-full text-center py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all text-[11px] font-bold tracking-widest text-gray-400 hover:text-white uppercase"
+        >
+          Can't Swap? Trade on PancakeSwap ↗
+        </a>
+      </div>
 
       <TxStatus hash={txHash} />
     </div>
