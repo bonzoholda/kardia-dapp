@@ -11,9 +11,9 @@ import { TokenApprovalGuard } from "./TokenApprovalGuard";
 import { TxStatus } from "./TxStatus";
 
 const ROUTER_ADDRESS = import.meta.env.VITE_ROUTER_ADDRESS as `0x${string}`;
-const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
+const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
 const KDIA_ADDRESS = import.meta.env.VITE_KDIA_ADDRESS as `0x${string}`;
-const WBTC_ADDRESS = import.meta.env.VITE_WBTC_ADDRESS as `0x${string}`; // This is BTCB
+const BTCB_ADDRESS = "0x7130d2A12B9BCbFAe4f2634d864A1ee1Ce3Ead9c";
 const WBNB_ADDRESS = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c";
 
 const ROUTER_ABI = [
@@ -45,31 +45,27 @@ export function SwapTrading() {
   const [amountIn, setAmountIn] = useState("");
   const [txHash, setTxHash] = useState<`0x${string}`>();
   
-  const SLIPPAGE_BPS = 9500n; // Adjusted to 5% for small liquidity stability
   const tokenIn = isBuy ? USDT_ADDRESS : KDIA_ADDRESS;
 
-  // Path: KDIA <-> BTCB <-> USDT (Standard 3-hop)
-  // If this returns 0, it means PancakeSwap's USDT/BTCB liquidity is low.
-  const smartPath = useMemo(() => {
-    if (!USDT_ADDRESS || !KDIA_ADDRESS || !WBTC_ADDRESS) return [];
-    return isBuy 
-      ? [USDT_ADDRESS, WBTC_ADDRESS, KDIA_ADDRESS] 
-      : [KDIA_ADDRESS, WBTC_ADDRESS, USDT_ADDRESS];
-  }, [isBuy]);
+  // Optimized Mainnet Path: KDIA <-> BTCB <-> WBNB <-> USDT
+  // This is the most liquid route on BNB Chain for BTCB pairs.
+  const smartPath = useMemo(() => [
+    ...(isBuy 
+      ? [USDT_ADDRESS, WBNB_ADDRESS, BTCB_ADDRESS, KDIA_ADDRESS] 
+      : [KDIA_ADDRESS, BTCB_ADDRESS, WBNB_ADDRESS, USDT_ADDRESS]
+    )
+  ] as `0x${string}`[], [isBuy]);
 
-  const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
+  const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS as `0x${string}` });
   const { data: kdiaData, refetch: refetchKdia } = useBalance({ address, token: KDIA_ADDRESS });
 
-  // Get price through the same path we trade
+  // 1 KDIA Price in USDT
   const { data: priceData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: [parseUnits("1", 18), [KDIA_ADDRESS, WBTC_ADDRESS, USDT_ADDRESS]],
-    query: { 
-        enabled: !!ROUTER_ADDRESS,
-        refetchInterval: 10000 
-    }
+    args: [parseUnits("1", 18), [KDIA_ADDRESS, BTCB_ADDRESS, WBNB_ADDRESS, USDT_ADDRESS]],
+    query: { enabled: !!ROUTER_ADDRESS, refetchInterval: 15000 }
   });
 
   const { data: quoteData } = useReadContract({
@@ -97,7 +93,7 @@ export function SwapTrading() {
   const handleSwap = async () => {
     if (!estimatedOutRaw || !address) return;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-    const minOut = (estimatedOutRaw * SLIPPAGE_BPS) / 10000n;
+    const minOut = (estimatedOutRaw * 9800n) / 10000n; // 2% Slippage
     try {
       const hash = await writeContractAsync({
         address: ROUTER_ADDRESS,
@@ -106,25 +102,20 @@ export function SwapTrading() {
         args: [parseUnits(amountIn, 18), minOut, smartPath, address, deadline],
       });
       setTxHash(hash);
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("Swap Error:", err); }
   };
 
   return (
     <div className="glass-card p-6 space-y-6">
       <div className="flex justify-between items-center border-b border-red-500/10 pb-4">
         <div>
-          <h2 className="text-xl font-bold tracking-tighter text-white font-['Orbitron']">SWAP HUB</h2>
+          <h2 className="text-xl font-bold tracking-tighter text-white font-['Orbitron'] uppercase">Swap Hub</h2>
           <div className="flex items-center gap-2 mt-1">
             <span className="live-indicator"></span>
-            <p className="text-[10px] font-medium text-red-500/80 uppercase tracking-widest">
-              1 KDIA ≈ {kdiaPriceUSDT} USDT
-            </p>
+            <p className="text-[10px] font-medium text-red-500/80 uppercase">1 KDIA ≈ {kdiaPriceUSDT} USDT</p>
           </div>
         </div>
-        <button 
-          onClick={() => { setIsBuy(!isBuy); setAmountIn(""); }}
-          className="btn-outline text-[10px] px-4 py-2 rounded-lg"
-        >
+        <button onClick={() => { setIsBuy(!isBuy); setAmountIn(""); }} className="btn-outline text-[10px] px-4 py-2 rounded-lg">
           {isBuy ? "SELL KDIA" : "BUY KDIA"}
         </button>
       </div>
@@ -142,14 +133,14 @@ export function SwapTrading() {
             value={amountIn}
             onChange={(e) => setAmountIn(e.target.value)}
             placeholder="0.00"
-            className="w-full bg-transparent text-3xl font-bold outline-none text-white placeholder:text-red-500/10 mt-2 font-['Inter']"
+            className="w-full bg-transparent text-3xl font-bold outline-none text-white mt-2 font-['Inter']"
           />
         </div>
 
         <div className="panel bg-white/[0.02]">
           <p className="panel-title">Receive (Est.)</p>
           <p className={`text-3xl font-bold mt-2 ${estimatedOut !== "0.0000" ? "text-white" : "text-gray-600"}`}>
-            {Number(estimatedOut).toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+            {estimatedOut}
           </p>
         </div>
       </div>
@@ -165,13 +156,11 @@ export function SwapTrading() {
       </TokenApprovalGuard>
 
       <TxStatus hash={txHash} />
-
+      
       {estimatedOut === "0.0000" && amountIn && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-          <p className="text-[10px] text-red-500 text-center font-bold tracking-widest uppercase">
-             Route Not Found / Low Liquidity
-          </p>
-        </div>
+        <p className="text-[10px] text-red-500 text-center font-bold animate-pulse">
+          INSUFFICIENT LIQUIDITY FOR THIS PATH
+        </p>
       )}
     </div>
   );
@@ -180,12 +169,9 @@ export function SwapTrading() {
 function BalanceChip({ label, val, neon }: { label: string; val?: string; neon?: boolean }) {
   return (
     <div className="panel p-3">
-      <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">{label} Balance</p>
+      <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">{label}</p>
       <p className={`text-lg font-semibold mt-1 ${neon ? "text-neon" : "text-white"}`}>
-        {Number(val || 0).toLocaleString('en-US', { 
-          minimumFractionDigits: 2, 
-          maximumFractionDigits: 2 
-        })}
+        {Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </p>
     </div>
   );
