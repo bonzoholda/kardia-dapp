@@ -177,7 +177,11 @@ function BalanceChip({ label, val, neon }: { label: string; val?: string; neon?:
     <div className="panel p-3">
       <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">{label} Balance</p>
       <p className={`text-lg font-semibold mt-1 ${neon ? "text-neon" : "text-white"}`}>
-        {Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        {/* Changed 'undefined' to 'en-US' to force international format */}
+        {Number(val || 0).toLocaleString('en-US', { 
+          minimumFractionDigits: 2, 
+          maximumFractionDigits: 2 
+        })}
       </p>
     </div>
   );
