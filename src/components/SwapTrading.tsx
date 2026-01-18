@@ -10,20 +10,21 @@ import { parseUnits, formatUnits } from "viem";
 import { TokenApprovalGuard } from "./TokenApprovalGuard";
 import { TxStatus } from "./TxStatus";
 
-// ADDRESSES (Matches your .env)
 const ROUTER_ADDRESS = import.meta.env.VITE_ROUTER_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
 const KDIA_ADDRESS = import.meta.env.VITE_KDIA_ADDRESS as `0x${string}`;
 const WBTC_ADDRESS = import.meta.env.VITE_WBTC_ADDRESS as `0x${string}`;
-const PAIR_ADDRESS = "0xD11c2c4881a69f9943D85d6317432Eb8Ec8aaAa2"; // Your KDIA/BTCB Pool
+const KDIA_BTCB_PAIR = "0xD11c2c4881a69f9943D85d6317432Eb8Ec8aaAa2";
 
-const PAIR_ABI = [{
-  inputs: [],
-  name: "getReserves",
-  outputs: [{ name: "_reserve0", type: "uint112" }, { name: "_reserve1", type: "uint112" }, { name: "_blockTimestampLast", type: "uint32" }],
-  stateMutability: "view",
-  type: "function",
-}] as const;
+const PAIR_ABI = [
+  {
+    inputs: [],
+    name: "getReserves",
+    outputs: [{ name: "_reserve0", type: "uint112" }, { name: "_reserve1", type: "uint112" }, { name: "_blockTimestampLast", type: "uint32" }],
+    stateMutability: "view",
+    type: "function",
+  }
+] as const;
 
 const ROUTER_ABI = [
   {
@@ -56,43 +57,42 @@ export function SwapTrading() {
   
   const tokenIn = isBuy ? USDT_ADDRESS : KDIA_ADDRESS;
 
-  // 1. BALANCES (Restored from your working version)
+  // 1. Pathing
+  const smartPath = useMemo(() => isBuy 
+    ? [USDT_ADDRESS, WBTC_ADDRESS, KDIA_ADDRESS] 
+    : [KDIA_ADDRESS, WBTC_ADDRESS, USDT_ADDRESS], [isBuy]);
+
+  // 2. Balances (Original working logic)
   const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
   const { data: kdiaData, refetch: refetchKdia } = useBalance({ address, token: KDIA_ADDRESS });
 
-  // 2. FETCH POOL DATA (The "Fail-Safe" way)
+  // 3. Price Logic (Direct Reserve Reading)
   const { data: reserves } = useReadContract({
-    address: PAIR_ADDRESS,
+    address: KDIA_BTCB_PAIR,
     abi: PAIR_ABI,
     functionName: "getReserves",
   });
 
-  // 3. FETCH BTCB PRICE IN USDT
-  const { data: btcToUsdt } = useReadContract({
+  const { data: btcToUsdtData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
     functionName: "getAmountsOut",
     args: [parseUnits("1", 18), [WBTC_ADDRESS, USDT_ADDRESS]],
   });
 
-  // 4. MANUAL PRICE MATH (Bypasses Router Reverts)
   const kdiaPriceUSDT = useMemo(() => {
-    if (!reserves || !btcToUsdt) return "0.00";
-    // reserve0 = KDIA, reserve1 = BTCB (Standard for this pair)
-    const kdiaRes = Number(formatUnits(reserves[0], 18));
-    const btcbRes = Number(formatUnits(reserves[1], 18));
-    const btcPrice = Number(formatUnits(btcToUsdt[1], 18));
+    if (!reserves || !btcToUsdtData) return "0.00";
+    try {
+      const r0 = Number(formatUnits(reserves[0], 18)); // KDIA
+      const r1 = Number(formatUnits(reserves[1], 18)); // BTCB
+      const btcPrice = Number(formatUnits(btcToUsdtData[1], 18));
+      
+      if (r0 === 0) return "0.00";
+      return ((r1 / r0) * btcPrice).toFixed(4);
+    } catch (e) { return "0.00"; }
+  }, [reserves, btcToUsdtData]);
 
-    if (kdiaRes === 0) return "0.00";
-    const kdiaInBtc = btcbRes / kdiaRes;
-    return (kdiaInBtc * btcPrice).toFixed(4);
-  }, [reserves, btcToUsdt]);
-
-  // 5. QUOTING LOGIC
-  const smartPath = useMemo(() => isBuy 
-    ? [USDT_ADDRESS, WBTC_ADDRESS, KDIA_ADDRESS] 
-    : [KDIA_ADDRESS, WBTC_ADDRESS, USDT_ADDRESS], [isBuy]);
-
+  // 4. Quoting
   const { data: quoteData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
@@ -101,7 +101,33 @@ export function SwapTrading() {
     query: { enabled: !!amountIn && Number(amountIn) > 0 }
   });
 
-  const estimatedOut = quoteData ? Number(formatUnits(quoteData[quoteData.length - 1], 18)).toFixed(4) : "0.0000";
+  const estimatedOutRaw = quoteData ? quoteData[quoteData.length - 1] : 0n;
+  const estimatedOut = estimatedOutRaw ? Number(formatUnits(estimatedOutRaw, 18)).toFixed(4) : "0.0000";
+
+  const { writeContractAsync, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+
+  useEffect(() => {
+    if (isSuccess) {
+      refetchUsdt(); refetchKdia();
+      setAmountIn(""); setTxHash(undefined);
+    }
+  }, [isSuccess]);
+
+  const handleSwap = async () => {
+    if (!estimatedOutRaw || !address) return;
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+    const minOut = (estimatedOutRaw * 8500n) / 10000n; // 15% slippage
+    try {
+      const hash = await writeContractAsync({
+        address: ROUTER_ADDRESS,
+        abi: ROUTER_ABI,
+        functionName: "swapExactTokensForTokensSupportingFeeOnTransferTokens",
+        args: [parseUnits(amountIn, 18), minOut, smartPath, address, deadline],
+      });
+      setTxHash(hash);
+    } catch (err) { console.error(err); }
+  };
 
   return (
     <div className="glass-card p-6 space-y-6">
@@ -131,20 +157,25 @@ export function SwapTrading() {
             value={amountIn}
             onChange={(e) => setAmountIn(e.target.value)}
             placeholder="0.00"
-            className="w-full bg-transparent text-3xl font-bold outline-none text-white mt-2"
+            className="w-full bg-transparent text-3xl font-bold outline-none text-white mt-2 font-['Inter']"
           />
         </div>
+
         <div className="panel bg-white/[0.02]">
           <p className="panel-title">Receive (Est.)</p>
-          <p className="text-3xl font-bold mt-2 text-white">{estimatedOut}</p>
+          <p className={`text-3xl font-bold mt-2 ${estimatedOut !== "0.0000" ? "text-white" : "text-gray-600"}`}>
+            {estimatedOut}
+          </p>
         </div>
       </div>
 
       <TokenApprovalGuard tokenAddress={tokenIn} spenderAddress={ROUTER_ADDRESS} amountRequired={amountIn || "0"}>
-        <button className="btn" disabled={!amountIn || estimatedOut === "0.0000"}>
-          {isBuy ? "CONFIRM PURCHASE" : "CONFIRM LIQUIDATION"}
+        <button onClick={handleSwap} disabled={!amountIn || estimatedOut === "0.0000" || isPending || isConfirming} className="btn">
+          {isPending || isConfirming ? "PROCESSING..." : isBuy ? "CONFIRM PURCHASE" : "CONFIRM LIQUIDATION"}
         </button>
       </TokenApprovalGuard>
+
+      <TxStatus hash={txHash} />
     </div>
   );
 }
