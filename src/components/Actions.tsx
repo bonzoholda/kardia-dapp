@@ -116,7 +116,7 @@ export function Actions() {
           <div className="text-right">
             <span className="text-[9px] text-gray-500 uppercase font-bold tracking-widest block">USDT Balance</span>
             <span className="text-xs font-mono text-red-500/80 font-bold">
-              {usdtBalance ? Number(usdtBalance.formatted).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+              {usdtBalance ? Number(usdtBalance.formatted).toLocaleString('en-US', { minimumFractionDigits: 2 }) : "0.00"}
             </span>
           </div>
         </div>
@@ -134,7 +134,7 @@ export function Actions() {
           <div className="text-right">
             <span className="text-[9px] text-gray-500 uppercase font-bold tracking-widest block">Available KDIA</span>
             <span className="text-xs font-mono text-white/60 font-bold">
-              {kdiaBalance ? Number(kdiaBalance.formatted).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+              {kdiaBalance ? Number(kdiaBalance.formatted).toLocaleString('en-US', { minimumFractionDigits: 2 }) : "0.00"}
             </span>
           </div>
         </div>
