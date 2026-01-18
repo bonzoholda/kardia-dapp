@@ -13,7 +13,8 @@ import { TxStatus } from "./TxStatus";
 const ROUTER_ADDRESS = import.meta.env.VITE_ROUTER_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
 const KDIA_ADDRESS = import.meta.env.VITE_KDIA_ADDRESS as `0x${string}`;
-const WBTC_ADDRESS = import.meta.env.VITE_WBTC_ADDRESS as `0x${string}`;
+const WBTC_ADDRESS = import.meta.env.VITE_WBTC_ADDRESS as `0x${string}`; // BTCB on Mainnet
+const WBNB_ADDRESS = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"; // Bridge for BNB Chain
 
 const ROUTER_ABI = [
   {
@@ -47,21 +48,23 @@ export function SwapTrading() {
   const SLIPPAGE_BPS = 9800n; 
   const tokenIn = isBuy ? USDT_ADDRESS : KDIA_ADDRESS;
 
+  // FIXED: Multi-hop pathing to bridge KDIA/BTCB through WBNB to reach USDT
   const smartPath = useMemo(() => {
     if (!USDT_ADDRESS || !KDIA_ADDRESS || !WBTC_ADDRESS) return [];
     return isBuy 
-      ? [USDT_ADDRESS, WBTC_ADDRESS, KDIA_ADDRESS] 
-      : [KDIA_ADDRESS, WBTC_ADDRESS, USDT_ADDRESS];
+      ? [USDT_ADDRESS, WBNB_ADDRESS, WBTC_ADDRESS, KDIA_ADDRESS] 
+      : [KDIA_ADDRESS, WBTC_ADDRESS, WBNB_ADDRESS, USDT_ADDRESS];
   }, [isBuy]);
 
   const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
   const { data: kdiaData, refetch: refetchKdia } = useBalance({ address, token: KDIA_ADDRESS });
 
+  // FIXED: Pricing path to include WBNB bridge
   const { data: priceData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: [parseUnits("1", 18), [KDIA_ADDRESS, WBTC_ADDRESS, USDT_ADDRESS]],
+    args: [parseUnits("1", 18), [KDIA_ADDRESS, WBTC_ADDRESS, WBNB_ADDRESS, USDT_ADDRESS]],
     query: { enabled: !!ROUTER_ADDRESS }
   });
 
@@ -73,7 +76,8 @@ export function SwapTrading() {
     query: { enabled: !!amountIn && Number(amountIn) > 0 }
   });
 
-  const kdiaPriceUSDT = priceData ? Number(formatUnits(priceData[2], 18)).toFixed(4) : "0.00";
+  // FIXED: Using dynamic index (length - 1) for price and quote
+  const kdiaPriceUSDT = priceData ? Number(formatUnits(priceData[priceData.length - 1], 18)).toFixed(4) : "0.00";
   const estimatedOutRaw = quoteData ? quoteData[quoteData.length - 1] : 0n;
   const estimatedOut = estimatedOutRaw ? Number(formatUnits(estimatedOutRaw, 18)).toFixed(4) : "0.0000";
 
@@ -104,13 +108,12 @@ export function SwapTrading() {
 
   return (
     <div className="glass-card p-6 space-y-6">
-      {/* Header with Futuristic Typography */}
       <div className="flex justify-between items-center border-b border-red-500/10 pb-4">
         <div>
           <h2 className="text-xl font-bold tracking-tighter text-white font-['Orbitron']">SWAP HUB</h2>
           <div className="flex items-center gap-2 mt-1">
             <span className="live-indicator"></span>
-            <p className="text-[10px] font-medium text-red-500/80">1 KDIA ≈ {kdiaPriceUSDT} USDT</p>
+            <p className="text-[10px] font-medium text-red-500/80 uppercase tracking-widest">1 KDIA ≈ {kdiaPriceUSDT} USDT</p>
           </div>
         </div>
         <button 
@@ -121,13 +124,11 @@ export function SwapTrading() {
         </button>
       </div>
 
-      {/* Balances */}
       <div className="grid grid-cols-2 gap-3">
         <BalanceChip label="USDT" val={usdtData?.formatted} />
         <BalanceChip label="KDIA" val={kdiaData?.formatted} neon />
       </div>
 
-      {/* Input Section */}
       <div className="space-y-3">
         <div className="panel">
           <p className="panel-title">{isBuy ? "Pay USDT" : "Pay KDIA"}</p>
@@ -140,11 +141,11 @@ export function SwapTrading() {
           />
         </div>
 
-        {/* Output Section (Read Only) */}
         <div className="panel bg-white/[0.02]">
           <p className="panel-title">Receive (Est.)</p>
           <p className={`text-3xl font-bold mt-2 ${estimatedOut !== "0.0000" ? "text-white" : "text-gray-600"}`}>
-            {estimatedOut}
+            {/* Added international formatting here for consistency */}
+            {Number(estimatedOut).toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
           </p>
         </div>
       </div>
@@ -177,7 +178,6 @@ function BalanceChip({ label, val, neon }: { label: string; val?: string; neon?:
     <div className="panel p-3">
       <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">{label} Balance</p>
       <p className={`text-lg font-semibold mt-1 ${neon ? "text-neon" : "text-white"}`}>
-        {/* Changed 'undefined' to 'en-US' to force international format */}
         {Number(val || 0).toLocaleString('en-US', { 
           minimumFractionDigits: 2, 
           maximumFractionDigits: 2 
