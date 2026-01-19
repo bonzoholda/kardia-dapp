@@ -73,9 +73,18 @@ export function SwapTrading() {
 
   const tokenIn = isBuy ? USDT_ADDRESS : KDIA_ADDRESS;
 
-  const smartPath = useMemo(() => isBuy 
-    ? [USDT_ADDRESS, WBTC_ADDRESS, KDIA_ADDRESS] 
-    : [KDIA_ADDRESS, WBTC_ADDRESS, USDT_ADDRESS], [isBuy]);
+  // Optimized Path Logic
+  const smartPath = useMemo(() => {
+    return isBuy 
+      ? [USDT_ADDRESS, WBTC_ADDRESS, KDIA_ADDRESS] as const
+      : [KDIA_ADDRESS, WBTC_ADDRESS, USDT_ADDRESS] as const;
+  }, [isBuy]);
+
+  const fallbackPath = useMemo(() => {
+    return isBuy 
+      ? [USDT_ADDRESS, KDIA_ADDRESS] as const
+      : [KDIA_ADDRESS, USDT_ADDRESS] as const;
+  }, [isBuy]);
 
   const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
   const { data: kdiaData, refetch: refetchKdia } = useBalance({ address, token: KDIA_ADDRESS });
@@ -112,24 +121,35 @@ export function SwapTrading() {
     } catch (e) { return "0.00"; }
   }, [reserves, btcToUsdtData, controllerPrice]);
 
-  // FIX: Robust check for amountIn before calling contract
-  const isValidInput = useMemo(() => {
-    return amountIn && !isNaN(Number(amountIn)) && Number(amountIn) > 0;
+  const amountInBI = useMemo(() => {
+    if (!amountIn || isNaN(Number(amountIn)) || Number(amountIn) <= 0) return 0n;
+    try { return parseUnits(amountIn, 18); } catch { return 0n; }
   }, [amountIn]);
 
+  // Primary 3-Hop Quote
   const { data: quoteData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: isValidInput ? [parseUnits(amountIn, 18), smartPath] : undefined,
+    args: amountInBI > 0n ? [amountInBI, [...smartPath]] : undefined,
     query: { 
-        enabled: !!isValidInput,
-        refetchInterval: 10000 // Refresh quote every 10 seconds
+        enabled: amountInBI > 0n,
+        refetchInterval: 5000 
     }
   });
 
-  const estimatedOutRaw = quoteData ? quoteData[quoteData.length - 1] : 0n;
-  const estimatedOut = estimatedOutRaw ? Number(formatUnits(estimatedOutRaw, 18)).toFixed(4) : "0.0000";
+  // Secondary 2-Hop Fallback (In case WBTC liquidity is the issue)
+  const { data: fallbackQuoteData } = useReadContract({
+    address: ROUTER_ADDRESS,
+    abi: ROUTER_ABI,
+    functionName: "getAmountsOut",
+    args: (amountInBI > 0n && !quoteData) ? [amountInBI, [...fallbackPath]] : undefined,
+    query: { enabled: amountInBI > 0n && !quoteData }
+  });
+
+  const finalQuote = quoteData || fallbackQuoteData;
+  const estimatedOutRaw = finalQuote ? finalQuote[finalQuote.length - 1] : 0n;
+  const estimatedOut = estimatedOutRaw ? Number(formatUnits(estimatedOutRaw, 18)).toFixed(6) : "0.000000";
 
   const { writeContractAsync, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
@@ -146,17 +166,18 @@ export function SwapTrading() {
   }, [isSuccess]);
 
   const handleSwap = async () => {
-    if (!estimatedOutRaw || !address || !isValidInput) return;
+    if (!estimatedOutRaw || !address || amountInBI === 0n) return;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-    // 15% Slippage (0.85 multiplier)
+    // 15% Slippage
     const minOut = (estimatedOutRaw * 850n) / 1000n; 
     
     try {
+      const activePath = quoteData ? smartPath : fallbackPath;
       const hash = await writeContractAsync({
         address: ROUTER_ADDRESS,
         abi: ROUTER_ABI,
         functionName: "swapExactTokensForTokensSupportingFeeOnTransferTokens",
-        args: [parseUnits(amountIn, 18), minOut, smartPath, address, deadline],
+        args: [amountInBI, minOut, [...activePath], address, deadline],
       });
       setTxHash(hash);
     } catch (err) { 
@@ -198,17 +219,16 @@ export function SwapTrading() {
 
         <div className="panel bg-white/[0.02]">
           <p className="panel-title">Receive (Est.)</p>
-          <p className={`text-3xl font-bold mt-2 ${estimatedOut !== "0.0000" ? "text-white" : "text-gray-600"}`}>
+          <p className={`text-3xl font-bold mt-2 ${estimatedOut !== "0.000000" ? "text-white" : "text-gray-600"}`}>
             {estimatedOut}
           </p>
         </div>
       </div>
 
-      {/* Conditional Button State */}
       <TokenApprovalGuard tokenAddress={tokenIn} spenderAddress={ROUTER_ADDRESS} amountRequired={amountIn || "0"}>
         <button 
           onClick={handleSwap} 
-          disabled={!isValidInput || estimatedOut === "0.0000" || isPending || isConfirming} 
+          disabled={amountInBI === 0n || estimatedOut === "0.000000" || isPending || isConfirming} 
           className="btn"
         >
           {isPending || isConfirming ? "PROCESSING..." : isBuy ? "CONFIRM PURCHASE" : "CONFIRM LIQUIDATION"}
