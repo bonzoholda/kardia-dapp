@@ -80,27 +80,26 @@ export function SwapTrading() {
   const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
   const { data: kdiaData, refetch: refetchKdia } = useBalance({ address, token: KDIA_ADDRESS });
 
-  // 1. Fetch Reserves from the Pair
+  // 1. Fetch from Controller (Primary)
+  const { data: controllerPrice } = useReadContract({
+    address: CONTROLLER_ADDRESS,
+    abi: CONTROLLER_ABI,
+    functionName: "_getKdiaPriceInUsdt",
+  });
+
+  // 2. Fetch Reserves (Secondary/Fallback)
   const { data: reserves } = useReadContract({
     address: KDIA_BTCB_PAIR,
     abi: PAIR_ABI,
     functionName: "getReserves",
   });
 
-  // 2. Fetch BTCB Price in USDT (Anchor for KDIA Price)
+  // 3. Fetch BTCB/USDT for Math
   const { data: btcToUsdtData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
     functionName: "getAmountsOut",
     args: [parseUnits("1", 18), [WBTC_ADDRESS, USDT_ADDRESS]],
-  });
-
-  // 3. Optional: Try to fetch price directly from Controller if public
-  const { data: controllerPrice } = useReadContract({
-    address: CONTROLLER_ADDRESS,
-    abi: CONTROLLER_ABI,
-    functionName: "getKdiaPriceInUsdt",
-    query: { enabled: !!CONTROLLER_ADDRESS }
   });
 
   // 4. Combined Price Calculation Logic
