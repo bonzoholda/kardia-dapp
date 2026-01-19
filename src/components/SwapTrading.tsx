@@ -15,7 +15,7 @@ const ROUTER_ADDRESS = import.meta.env.VITE_ROUTER_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
 const KDIA_ADDRESS = import.meta.env.VITE_KDIA_ADDRESS as `0x${string}`;
 const WBTC_ADDRESS = import.meta.env.VITE_WBTC_ADDRESS as `0x${string}`;
-const CONTROLLER_ADDRESS = import.meta.env.VITE_CONTROLLER_ADDRESS as `0x${string}`; // Ensure this is in your .env
+const CONTROLLER_ADDRESS = import.meta.env.VITE_CONTROLLER_ADDRESS as `0x${string}`;
 const KDIA_BTCB_PAIR = "0xD11c2c4881a69f9943D85d6317432Eb8Ec8aaAa2";
 
 const PAIR_ABI = [
@@ -35,7 +35,7 @@ const PAIR_ABI = [
 const CONTROLLER_ABI = [
   {
     inputs: [],
-    name: "_getKdiaPriceInUsdt", // MUST match the contract exactly
+    name: "_getKdiaPriceInUsdt",
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
@@ -80,21 +80,18 @@ export function SwapTrading() {
   const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
   const { data: kdiaData, refetch: refetchKdia } = useBalance({ address, token: KDIA_ADDRESS });
 
-  // 1. Fetch from Controller (Primary)
   const { data: controllerPrice } = useReadContract({
     address: CONTROLLER_ADDRESS,
     abi: CONTROLLER_ABI,
     functionName: "_getKdiaPriceInUsdt",
   });
 
-  // 2. Fetch Reserves (Secondary/Fallback)
   const { data: reserves } = useReadContract({
     address: KDIA_BTCB_PAIR,
     abi: PAIR_ABI,
     functionName: "getReserves",
   });
 
-  // 3. Fetch BTCB/USDT for Math
   const { data: btcToUsdtData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
@@ -102,35 +99,33 @@ export function SwapTrading() {
     args: [parseUnits("1", 18), [WBTC_ADDRESS, USDT_ADDRESS]],
   });
 
-  // 4. Combined Price Calculation Logic
   const kdiaPriceUSDT = useMemo(() => {
-    // If Controller function is available and returning data, use it
-    if (controllerPrice) return Number(formatUnits(controllerPrice, 18)).toFixed(4);
-
-    // Fallback: Use Reserve-based Math (Internal Logic Clone)
+    if (controllerPrice && controllerPrice > 0n) return Number(formatUnits(controllerPrice, 18)).toFixed(4);
     if (!reserves || !btcToUsdtData) return "0.00";
     try {
-      // BTCB (token0) = 0x71..., KDIA (token1) = 0x89...
       const reserveBTCB = reserves[0];
       const reserveKDIA = reserves[1];
-      const btcPriceInUsdt = btcToUsdtData[1]; // Value of 1 BTCB in USDT
-
+      const btcPriceInUsdt = btcToUsdtData[1];
       if (reserveKDIA === 0n) return "0.00";
-
-      // Price = (BTC_Reserves / KDIA_Reserves) * BTC_Price_In_USDT
       const priceScaled = (reserveBTCB * btcPriceInUsdt) / reserveKDIA;
       return Number(formatUnits(priceScaled, 18)).toFixed(4);
-    } catch (e) { 
-      return "0.00"; 
-    }
+    } catch (e) { return "0.00"; }
   }, [reserves, btcToUsdtData, controllerPrice]);
+
+  // FIX: Robust check for amountIn before calling contract
+  const isValidInput = useMemo(() => {
+    return amountIn && !isNaN(Number(amountIn)) && Number(amountIn) > 0;
+  }, [amountIn]);
 
   const { data: quoteData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
     functionName: "getAmountsOut",
-    args: amountIn && Number(amountIn) > 0 ? [parseUnits(amountIn, 18), smartPath] : undefined,
-    query: { enabled: !!amountIn && Number(amountIn) > 0 }
+    args: isValidInput ? [parseUnits(amountIn, 18), smartPath] : undefined,
+    query: { 
+        enabled: !!isValidInput,
+        refetchInterval: 10000 // Refresh quote every 10 seconds
+    }
   });
 
   const estimatedOutRaw = quoteData ? quoteData[quoteData.length - 1] : 0n;
@@ -140,8 +135,7 @@ export function SwapTrading() {
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
 
   const getPancakeSwapLink = () => {
-    const baseUrl = "https://pancakeswap.finance/swap";
-    return `${baseUrl}?inputCurrency=${USDT_ADDRESS}&outputCurrency=${KDIA_ADDRESS}&chainId=56`;
+    return `https://pancakeswap.finance/swap?inputCurrency=${USDT_ADDRESS}&outputCurrency=${KDIA_ADDRESS}&chainId=56`;
   };
   
   useEffect(() => {
@@ -152,9 +146,11 @@ export function SwapTrading() {
   }, [isSuccess]);
 
   const handleSwap = async () => {
-    if (!estimatedOutRaw || !address || !amountIn) return;
+    if (!estimatedOutRaw || !address || !isValidInput) return;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-    const minOut = (estimatedOutRaw * 8500n) / 10000n; // 15% Slippage tolerance for fee-on-transfer
+    // 15% Slippage (0.85 multiplier)
+    const minOut = (estimatedOutRaw * 850n) / 1000n; 
+    
     try {
       const hash = await writeContractAsync({
         address: ROUTER_ADDRESS,
@@ -163,7 +159,9 @@ export function SwapTrading() {
         args: [parseUnits(amountIn, 18), minOut, smartPath, address, deadline],
       });
       setTxHash(hash);
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error("Swap Error:", err); 
+    }
   };
 
   return (
@@ -206,8 +204,13 @@ export function SwapTrading() {
         </div>
       </div>
 
+      {/* Conditional Button State */}
       <TokenApprovalGuard tokenAddress={tokenIn} spenderAddress={ROUTER_ADDRESS} amountRequired={amountIn || "0"}>
-        <button onClick={handleSwap} disabled={!amountIn || estimatedOut === "0.0000" || isPending || isConfirming} className="btn">
+        <button 
+          onClick={handleSwap} 
+          disabled={!isValidInput || estimatedOut === "0.0000" || isPending || isConfirming} 
+          className="btn"
+        >
           {isPending || isConfirming ? "PROCESSING..." : isBuy ? "CONFIRM PURCHASE" : "CONFIRM LIQUIDATION"}
         </button>
       </TokenApprovalGuard>
@@ -217,11 +220,6 @@ export function SwapTrading() {
           href={getPancakeSwapLink()} 
           target="_blank" 
           rel="noopener noreferrer"
-          onClick={(e) => {
-            if (window.ethereum && /iPhone|Android|iPad/i.test(navigator.userAgent)) {
-              window.location.href = getPancakeSwapLink();
-            }
-          }}
           className="block w-full text-center py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all text-[11px] font-bold tracking-widest text-gray-400 hover:text-white uppercase"
         >
           Trade on PancakeSwap ↗
