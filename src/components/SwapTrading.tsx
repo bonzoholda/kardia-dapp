@@ -10,20 +10,33 @@ import { parseUnits, formatUnits } from "viem";
 import { TokenApprovalGuard } from "./TokenApprovalGuard";
 import { TxStatus } from "./TxStatus";
 
+// Environment variables and constants
 const ROUTER_ADDRESS = import.meta.env.VITE_ROUTER_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
 const KDIA_ADDRESS = import.meta.env.VITE_KDIA_ADDRESS as `0x${string}`;
 const WBTC_ADDRESS = import.meta.env.VITE_WBTC_ADDRESS as `0x${string}`;
+const CONTROLLER_ADDRESS = import.meta.env.VITE_CONTROLLER_ADDRESS as `0x${string}`; // Ensure this is in your .env
 const KDIA_BTCB_PAIR = "0xD11c2c4881a69f9943D85d6317432Eb8Ec8aaAa2";
-
-// Official PancakeSwap Swap Link with pre-filled tokens
-const PANCAKESWAP_LINK = `https://pancakeswap.finance/swap?inputCurrency=${USDT_ADDRESS}&outputCurrency=${KDIA_ADDRESS}`;
 
 const PAIR_ABI = [
   {
     inputs: [],
     name: "getReserves",
-    outputs: [{ name: "_reserve0", type: "uint112" }, { name: "_reserve1", type: "uint112" }, { name: "_blockTimestampLast", type: "uint32" }],
+    outputs: [
+      { name: "_reserve0", type: "uint112" },
+      { name: "_reserve1", type: "uint112" },
+      { name: "_blockTimestampLast", type: "uint32" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+const CONTROLLER_ABI = [
+  {
+    inputs: [],
+    name: "getKdiaPriceInUsdt", // Note: Removed underscore for the public call check
+    outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   }
@@ -57,7 +70,7 @@ export function SwapTrading() {
   const [isBuy, setIsBuy] = useState(true);
   const [amountIn, setAmountIn] = useState("");
   const [txHash, setTxHash] = useState<`0x${string}`>();
-  
+
   const tokenIn = isBuy ? USDT_ADDRESS : KDIA_ADDRESS;
 
   const smartPath = useMemo(() => isBuy 
@@ -67,12 +80,14 @@ export function SwapTrading() {
   const { data: usdtData, refetch: refetchUsdt } = useBalance({ address, token: USDT_ADDRESS });
   const { data: kdiaData, refetch: refetchKdia } = useBalance({ address, token: KDIA_ADDRESS });
 
+  // 1. Fetch Reserves from the Pair
   const { data: reserves } = useReadContract({
     address: KDIA_BTCB_PAIR,
     abi: PAIR_ABI,
     functionName: "getReserves",
   });
 
+  // 2. Fetch BTCB Price in USDT (Anchor for KDIA Price)
   const { data: btcToUsdtData } = useReadContract({
     address: ROUTER_ADDRESS,
     abi: ROUTER_ABI,
@@ -80,16 +95,36 @@ export function SwapTrading() {
     args: [parseUnits("1", 18), [WBTC_ADDRESS, USDT_ADDRESS]],
   });
 
+  // 3. Optional: Try to fetch price directly from Controller if public
+  const { data: controllerPrice } = useReadContract({
+    address: CONTROLLER_ADDRESS,
+    abi: CONTROLLER_ABI,
+    functionName: "getKdiaPriceInUsdt",
+    query: { enabled: !!CONTROLLER_ADDRESS }
+  });
+
+  // 4. Combined Price Calculation Logic
   const kdiaPriceUSDT = useMemo(() => {
+    // If Controller function is available and returning data, use it
+    if (controllerPrice) return Number(formatUnits(controllerPrice, 18)).toFixed(4);
+
+    // Fallback: Use Reserve-based Math (Internal Logic Clone)
     if (!reserves || !btcToUsdtData) return "0.00";
     try {
-      const r0 = Number(formatUnits(reserves[0], 18)); 
-      const r1 = Number(formatUnits(reserves[1], 18)); 
-      const btcPrice = Number(formatUnits(btcToUsdtData[1], 18));
-      if (r0 === 0) return "0.00";
-      return ((r1 / r0) * btcPrice).toFixed(4);
-    } catch (e) { return "0.00"; }
-  }, [reserves, btcToUsdtData]);
+      // BTCB (token0) = 0x71..., KDIA (token1) = 0x89...
+      const reserveBTCB = reserves[0];
+      const reserveKDIA = reserves[1];
+      const btcPriceInUsdt = btcToUsdtData[1]; // Value of 1 BTCB in USDT
+
+      if (reserveKDIA === 0n) return "0.00";
+
+      // Price = (BTC_Reserves / KDIA_Reserves) * BTC_Price_In_USDT
+      const priceScaled = (reserveBTCB * btcPriceInUsdt) / reserveKDIA;
+      return Number(formatUnits(priceScaled, 18)).toFixed(4);
+    } catch (e) { 
+      return "0.00"; 
+    }
+  }, [reserves, btcToUsdtData, controllerPrice]);
 
   const { data: quoteData } = useReadContract({
     address: ROUTER_ADDRESS,
@@ -105,10 +140,8 @@ export function SwapTrading() {
   const { writeContractAsync, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
 
-  // This format is more robust for Mobile dApp browsers
   const getPancakeSwapLink = () => {
     const baseUrl = "https://pancakeswap.finance/swap";
-    // Adding chainId=56 forces the mobile app to stay on BSC
     return `${baseUrl}?inputCurrency=${USDT_ADDRESS}&outputCurrency=${KDIA_ADDRESS}&chainId=56`;
   };
   
@@ -120,9 +153,9 @@ export function SwapTrading() {
   }, [isSuccess]);
 
   const handleSwap = async () => {
-    if (!estimatedOutRaw || !address) return;
+    if (!estimatedOutRaw || !address || !amountIn) return;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-    const minOut = (estimatedOutRaw * 8500n) / 10000n; 
+    const minOut = (estimatedOutRaw * 8500n) / 10000n; // 15% Slippage tolerance for fee-on-transfer
     try {
       const hash = await writeContractAsync({
         address: ROUTER_ADDRESS,
@@ -180,16 +213,13 @@ export function SwapTrading() {
         </button>
       </TokenApprovalGuard>
 
-      {/* EMERGENCY EXTERNAL LINK */}
       <div className="pt-2">
         <a 
           href={getPancakeSwapLink()} 
           target="_blank" 
           rel="noopener noreferrer"
-          // This helps mobile wallets treat it as an internal navigation if possible
           onClick={(e) => {
             if (window.ethereum && /iPhone|Android|iPad/i.test(navigator.userAgent)) {
-              // If we are in a mobile dApp browser, try to force the location
               window.location.href = getPancakeSwapLink();
             }
           }}
