@@ -35,7 +35,7 @@ const PAIR_ABI = [
 const CONTROLLER_ABI = [
   {
     inputs: [],
-    name: "getKdiaPriceInUsdt", // Note: Removed underscore for the public call check
+    name: "_getKdiaPriceInUsdt", // MUST match the contract exactly
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
