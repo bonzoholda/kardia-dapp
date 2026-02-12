@@ -85,7 +85,7 @@ export default function Stats() {
       const hash = await unstakeKDIA({
         address: CONTROLLER_ADDRESS,
         abi: SPHYGMOS_CONTROLLER_ABI,
-        functionName: "unstakeSMOS",
+        functionName: "unstakeKDIA",
         args: [finalAmountBigInt],
       });
       setUnstakeTx(hash);
