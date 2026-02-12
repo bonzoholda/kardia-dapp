@@ -82,7 +82,7 @@ export default function Stats() {
     }
 
     try {
-      const hash = await unstakeSMOS({
+      const hash = await unstakeKDIA({
         address: CONTROLLER_ADDRESS,
         abi: SPHYGMOS_CONTROLLER_ABI,
         functionName: "unstakeSMOS",
